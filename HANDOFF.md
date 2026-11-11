@@ -2,34 +2,18 @@
 
 > 이 문서는 작업 인계용입니다. **CLAUDE.md의 규칙이 이 문서보다 우선합니다.** 충돌하면 CLAUDE.md를 따릅니다.
 
-- 브랜치: `feat/msds-agent` (아직 커밋 없음)
 - 마지막 갱신: 2026-11-11
 
-## 브랜치·커밋 인계
+## 저장소 상태
 
-- 원격 저장소: `origin` = https://github.com/dongyiya/mini-pjt.git
-- 2026-11-11 첫 커밋 `0574139`(1일차 작업) 후 `feat/msds-agent`를 push함. 저장소 전용 Git 설정: `user.name=dongyiya`, `user.email=dongyiya@empal.com`
-- 아래 "브랜치·커밋 인계"의 커밋 전 상태 설명은 첫 커밋 이전 기록입니다.
-- 작업 브랜치는 `feat/msds-agent`이며 이미 체크아웃되어 있습니다. 첫 커밋 전이라 `master`에는 아무 기록이 없습니다.
-- 1일차 파일은 **스테이징만 된 상태**입니다. 커밋은 아직 하지 않았습니다.
-- `.archify/`(주제 추천·설명 페이지)는 프로젝트 산출물이 아니라서 스테이징하지 않았습니다. 커밋에 넣지 않습니다.
-- 이 PC에는 Git 사용자 이름·이메일이 없어 커밋이 실패했습니다. 첫 커밋 전에 이 저장소에만 설정합니다.
-  ```bash
-  git config user.name "이름"
-  git config user.email "이메일"
-  ```
-- 첫 커밋 메시지 초안 (1일차 작업 요약):
-  ```
-  MSDS 개정 지원 에이전트 1일차: 서비스 스펙, 평가셋, 데이터·도구 뼈대
-
-  - SERVICE.md: 사용자·문제·가치, 확장, 도구·데이터, 가드레일, 성공 기준
-  - evaluation/test_queries.csv: 인-아웃 세트 20건 (positive 8, negative 4, edge 5, guardrail 3)
-  - data/laws: 산안법·시행규칙·화관법 조문 원문 (국가법령정보센터)
-  - data/msds, data/regulation_updates.json: 가상 제품 MSDS 6개, 변경 사건 4건
-  - src/tools.py, retriever.py, pipeline.py: 도구 7개, 키워드 검색 스케치, LLM 없는 최소 파이프라인
-  - HANDOFF.md: 진행 현황과 다음 작업 (CLAUDE.md 규칙 우선)
-  ```
-- VS Code에서 추가 작업을 한 뒤 1일차 파일과 함께 커밋해도 되고, 1일차 파일만 먼저 커밋해도 됩니다.
+| 항목 | 내용 |
+|---|---|
+| 원격 저장소 | `origin` = https://github.com/dongyiya/mini-pjt.git |
+| 브랜치 | 작업은 `feat/msds-agent`에서 하고, 단계가 끝나면 `master`에 fast-forward로 반영해 둘 다 push |
+| 최신 커밋 | `a3e6705` 계획 보강 (`master`·`feat/msds-agent` 동일) |
+| 커밋 이력 | `0574139` 1일차: 서비스 스펙, 평가셋, 데이터·도구 뼈대 → `a3e6705` 계획 보강: 데이터·도구 범위, 일정·검증 절차, 법령 근거 규칙 |
+| Git 설정 | 이 저장소에만 `user.name=dongyiya`, `user.email=dongyiya@empal.com` |
+| 커밋 제외 | `.archify/`(주제 검토 페이지), `index/`, `*.sqlite` (`.gitignore`). `.env`는 상위 폴더에 있어 저장소 밖 |
 
 ## 확정된 결정
 
@@ -108,7 +92,7 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 
 ## 다음 작업 (2일차~)
 
-1. ~~`pyproject.toml`(uv, Python 3.12) + `requirements.txt` export, `.env.example`~~ → 기존 `.venv`·`.env`를 쓰기로 해서 취소. 대신 실제로 쓰는 패키지만 `requirements.txt`에 적고, 필요한 환경 변수 이름을 README에 정리합니다. 3.14에서 설치가 안 되는 패키지가 나오면 그때 대안을 정합니다.
+1. 의존성 정리: 실제로 쓰는 패키지만 `requirements.txt`에 적고 기존 `.venv`(Python 3.14)에 설치합니다. 필요한 환경 변수 이름은 README에 정리합니다. 3.14에서 설치가 안 되는 패키지가 나오면 그때 대안을 정합니다. (`pyproject.toml`·uv·`.env.example`은 만들지 않기로 결정)
 2. 데이터 보강: `scripts/collect_data.py`(국가법령정보센터·안전보건공단 API로 법령 조문과 단일물질 MSDS를 수집해 `data/`에 스냅샷 저장, 키가 없거나 호출이 실패하면 저장된 스냅샷 사용), `scripts/build_index.py`(BM25·FAISS 검색 인덱스 생성)
 3. `src/config.py`(모델 ID·리전·상위 `.env` 경로·데이터·인덱스 경로를 한곳에서 읽음), `src/llm.py`(ChatBedrockConverse), `src/schemas.py`
 4. 검색 교체: BM25 + FAISS 앙상블, 1순위 정확도 개선
@@ -138,15 +122,25 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 5. 평가: `../.venv/Scripts/python evaluation/run_eval.py --round 1` → 통과율과 RAGAS 지표 출력, 보고서 생성
 6. 클린 환경: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.env msds-agent` (`.env`는 상위 폴더에 있음)
 
-## 사용자가 준비할 것
-- ~~AWS 자격 증명과 Bedrock 모델 접근 승인(Claude 계열 + Titan Embed v2, 리전)~~ → 상위 `.env`에 있음, 2026-11-11 실제 호출로 확인
-  - 리전 `us-east-1`. 호출 성공: `us.anthropic.claude-sonnet-4-6`, `us.anthropic.claude-sonnet-4-5-20250929-v1:0`, `amazon.titan-embed-text-v2:0`(1024차원)
-  - 권한 거부: Claude 5·5.5 계열, `claude-opus-4-5`. `claude-haiku-4-5`는 확인 시 요청 한도 초과(Throttling)라 판단 보류
-  - LLM은 `us.anthropic.claude-sonnet-4-6`으로 확정, 상위 `.env`에 `BEDROCK_MODEL_ID`로 추가함 (2026-11-11)
-- ~~LangSmith API 키~~ → 상위 `.env`에 있음, 인증 확인. `LANGSMITH_PROJECT`를 `day4-practice`에서 `mini-pjt`로 변경함 (2026-11-11)
-- (선택) ~~국가법령정보센터 Open API OC~~ → 상위 `.env`에 `LAW_API_OC`로 추가, 2026-11-11 `lawSearch.do` 호출 성공(화학물질관리법 검색, 현행 법령 일련번호 285367 · 시행 2026-10-08)
-- (선택) 공공데이터포털 서비스키: 2026-11-11 새 계정 키로 `.env`의 `DATA_GO_KR_API_KEY` 교체. "한국산업안전보건공단_물질안전보건자료 조회 서비스"(데이터셋 15157612) 호출 성공
-  - End Point `https://apis.data.go.kr/B552468/msdschem1`, 응답 XML
-  - 오퍼레이션 이름에 게이트웨이 접미사가 붙음: 목록 `getChemList001`(`searchWrd`, `searchCnd`=0 국문명, `numOfRows`, `pageNo`), 상세 `getChemDetail011`~`getChemDetail161`(MSDS 1~16번 항목, `chemId` 필수). 예전 주소 `msds.kosha.or.kr/openapi/service/msdschem/chemlist`, `getChemList`는 동작하지 않음
-  - 확인 예: 톨루엔 `chemId=001032`(CAS 108-88-3). 15번 상세에서 화학물질관리법 규제가 **"사고대비물질"만** 나오고 유독물질 표기는 없음 → U-01 판단과 일치
-- 키는 `.env`에만 넣고 커밋하지 않습니다(`.gitignore`에 등록됨).
+## 외부 서비스·키 (모두 준비 완료, 2026-11-11 실제 호출로 확인)
+
+키는 모두 상위 `sds-ax-practice/.env`에 있고 커밋하지 않습니다.
+
+| 서비스 | 환경 변수 | 확인 결과 |
+|---|---|---|
+| AWS Bedrock | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`(`us-east-1`), `BEDROCK_MODEL_ID` | LLM `us.anthropic.claude-sonnet-4-6`, 임베딩 `amazon.titan-embed-text-v2:0`(1024차원) 호출 성공 |
+| LangSmith | `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`(`mini-pjt`) | 인증 성공 |
+| 국가법령정보센터 Open API | `LAW_API_OC` | `lawSearch.do` 호출 성공 |
+| 공공데이터포털 (안전보건공단 MSDS) | `DATA_GO_KR_API_KEY` | `getChemList001`, `getChemDetail151` 호출 성공 |
+
+### Bedrock 모델 접근
+- 호출 성공: `us.anthropic.claude-sonnet-4-6`(사용 중), `us.anthropic.claude-sonnet-4-5-20250929-v1:0`
+- 권한 거부: Claude 5·5.5 계열, `claude-opus-4-5`. `claude-haiku-4-5`는 확인 시 요청 한도 초과(Throttling)라 판단 보류
+
+### 국가법령정보센터
+- 화학물질관리법 검색 결과: 현행 법령 일련번호 285367, 시행 2026-10-08
+
+### 안전보건공단 MSDS API (데이터셋 15157612)
+- End Point `https://apis.data.go.kr/B552468/msdschem1`, 응답 XML
+- 오퍼레이션 이름에 게이트웨이 접미사가 붙음: 목록 `getChemList001`(`searchWrd`, `searchCnd`=0 국문명, `numOfRows`, `pageNo`), 상세 `getChemDetail011`~`getChemDetail161`(MSDS 1~16번 항목, `chemId` 필수). 예전 주소 `msds.kosha.or.kr/openapi/service/msdschem/chemlist`, `getChemList`는 동작하지 않음
+- 확인 예: 톨루엔 `chemId=001032`(CAS 108-88-3). 15번 상세에서 화학물질관리법 규제가 **"사고대비물질"만** 나오고 유독물질 표기는 없음 → U-01 판단과 일치
