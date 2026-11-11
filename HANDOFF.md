@@ -7,7 +7,9 @@
 
 ## 브랜치·커밋 인계
 
-- 원격 저장소: `origin` = https://github.com/dongyiya/mini-pjt.git (2026-11-11 연결, 아직 push 안 함. 원격은 빈 저장소)
+- 원격 저장소: `origin` = https://github.com/dongyiya/mini-pjt.git
+- 2026-11-11 첫 커밋 `0574139`(1일차 작업) 후 `feat/msds-agent`를 push함. 저장소 전용 Git 설정: `user.name=dongyiya`, `user.email=dongyiya@empal.com`
+- 아래 "브랜치·커밋 인계"의 커밋 전 상태 설명은 첫 커밋 이전 기록입니다.
 - 작업 브랜치는 `feat/msds-agent`이며 이미 체크아웃되어 있습니다. 첫 커밋 전이라 `master`에는 아무 기록이 없습니다.
 - 1일차 파일은 **스테이징만 된 상태**입니다. 커밋은 아직 하지 않았습니다.
 - `.archify/`(주제 추천·설명 페이지)는 프로젝트 산출물이 아니라서 스테이징하지 않았습니다. 커밋에 넣지 않습니다.
@@ -34,13 +36,14 @@
 | 항목 | 결정 |
 |---|---|
 | 주제 | 규제·배합 변경 시 MSDS 개정 필요 여부를 판정하고 개정 초안을 만드는 에이전트 |
-| 대상 MSDS | 가상 제품 6개(`data/msds/products.json`) + 안전보건공단 공개 MSDS(추가 예정) |
-| 법 범위 | 산업안전보건법(법·시행규칙·MSDS 고시) + 화학물질관리법 |
+| 대상 MSDS | 가상 제품 6개(`data/msds/products.json`) + 안전보건공단 공개 단일물질 MSDS 15종 안팎 (`data/substances/*.json` 스냅샷: CAS, GHS 분류, 15번 규제현황. 톨루엔·벤젠·포름알데히드·메탄올 등 가상 제품 성분 우선) |
+| 법 범위 | 산업안전보건법(법·시행령·시행규칙·MSDS 고시) + 화학물질관리법. 수집 목표 조문: 산안법 제110~116조, 시행규칙 제156~170조, MSDS 고시 주요 조항, 화관법 정의·유해화학물질 조항 (현재 `data/laws`에는 산안법 제110·111·114조, 시행규칙 제156·159조, 화관법 제2조만 있음). 조문을 늘리면 평가셋도 그에 맞춰 보강 |
 | LLM | AWS Bedrock `us.anthropic.claude-sonnet-4-6` (환경변수 `BEDROCK_MODEL_ID`, 상위 `.env`에 설정됨) |
 | 임베딩 | Bedrock Titan Text Embeddings v2 (예정) |
 | 트레이스 | LangSmith |
 | Python·개발 도구 | **기존에 설치된 환경을 사용**: 상위 폴더의 `.venv`(Python 3.14.8). 새 가상환경·`pyproject.toml`·uv 잠금 파일은 만들지 않음 (2026-11-11 결정) |
 | 환경 변수 | **기존 상위 폴더 `.env`를 사용** (`sds-ax-practice/.env`). 프로젝트에 새 `.env`를 만들지 않음 |
+| Docker | 베이스 이미지 `python:3.14-slim` (로컬 `.venv`와 버전을 맞춤). 설치 문제가 생기면 로컬과 Docker 버전을 함께 바꿈 |
 | 평가 정답 | 사용자가 도메인 경험이 거의 없으므로 **공개 원문에 적힌 사실**로만 작성 |
 
 ## 완료된 것 (1일차 범위)
@@ -83,34 +86,57 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
                          → output_guard → 응답(answer, contexts, trace)
 ```
 - HITL은 **엔드포인트를 추가하지 않고** 같은 `/query`로 처리합니다. 초안이 나오면 answer에 "승인 대기 REQ-xxxx"를 돌려주고, `{"question": "승인 REQ-xxxx"}` 또는 `"반려 REQ-xxxx 사유"`로 재개합니다(SqliteSaver, thread_id=REQ-xxxx).
+- 모든 노드는 응답 `trace`에 `{step, input, output}`를 쌓습니다. LangSmith에도 같은 run이 기록됩니다. 평가에서 `expected_tools`는 이 trace에 남은 도구 호출로 확인합니다.
 
 ## 패턴 → 구현 위치 (목표 10개)
 
 | # | 패턴 | 위치 |
 |---|---|---|
-| 1 | LCEL 구조화 출력 (필수) | `src/schemas.py` `RevisionJudgment{revision_needed, sections, reasons, legal_basis, draft}` |
-| 2 | ReAct | 서브 에이전트마다 bind_tools |
-| 3 | RAG (필수) | BM25(kiwipiepy) + FAISS(Titan v2) 앙상블, 물질명↔CAS 쿼리 확장, 리랭킹 |
-| 4 | 도구 다중 | `src/tools.py` (+ `classify_mixture` 추가 예정) |
-| 5 | MCP | `src/mcp_server.py`로 MSDS DB 노출 |
-| 6 | 가드레일 | `src/guardrails.py` (현재 `pipeline.py`의 정규식을 옮겨 확장) |
+| 1 | LCEL 구조화 출력 (필수) | `src/schemas.py` `RevisionJudgment{revision_needed, sections, reasons, legal_basis, draft}`. `legal_basis`는 근거 조문의 doc_id 목록(예: `law:산안법시행규칙:159`) |
+| 2 | ReAct | 서브 에이전트마다 `create_react_agent`(bind_tools)로 생성 |
+| 3 | RAG (필수) | BM25(kiwipiepy) + FAISS(Titan v2) 앙상블, 물질명↔CAS 쿼리 확장, 리랭킹(Bedrock Rerank를 쓸 수 있으면 사용, 안 되면 LLM 리랭크) |
+| 4 | 도구 다중 | `src/tools.py` 기존 7개 + 추가 예정 `search_law`(법령 검색을 도구로 감쌈), `get_substance(cas)`(단일물질 MSDS 조회), `classify_mixture`(GHS 혼합물 분류 계산) |
+| 5 | MCP | `src/mcp_server.py`로 MSDS DB 조회를 노출하고, 에이전트는 MCP 클라이언트로 호출 |
+| 6 | 가드레일 | `src/guardrails.py` (현재 `pipeline.py`의 정규식을 옮겨 확장): 영업비밀 성분명·함유량 마스킹, 담당자 연락처 마스킹, 프롬프트 인젝션·범위 밖 질문 차단 |
 | 7 | HITL | revision_agent `interrupt()` |
 | 8 | 미들웨어 | API 재시도(tenacity), 긴 조문 요약 |
 | 9 | Supervisor | `src/agent.py` |
 | 11 | Trace (필수) | LangSmith + 응답 `trace` |
 | 12 | 평가 (필수) | `evaluation/run_eval.py` RAGAS 4지표 + LLM-as-Judge |
 
-10번(장기 메모리)은 시간이 남으면 추가합니다.
+10번(장기 메모리)은 시간이 남으면 제품 목록과 이전 판정 이력을 LangGraph Store에 저장하는 방식으로 추가합니다.
 
 ## 다음 작업 (2일차~)
 
 1. ~~`pyproject.toml`(uv, Python 3.12) + `requirements.txt` export, `.env.example`~~ → 기존 `.venv`·`.env`를 쓰기로 해서 취소. 대신 실제로 쓰는 패키지만 `requirements.txt`에 적고, 필요한 환경 변수 이름을 README에 정리합니다. 3.14에서 설치가 안 되는 패키지가 나오면 그때 대안을 정합니다.
-2. `src/llm.py`(ChatBedrockConverse), `src/schemas.py`
-3. 검색 교체: BM25 + FAISS 앙상블, 1순위 정확도 개선
-4. `src/guardrails.py`, `src/agent.py`(Supervisor + ReAct + HITL), `src/api.py`(FastAPI `POST /query`)
-5. `src/mcp_server.py`, LangSmith 연결
-6. `evaluation/run_eval.py` → round1 보고서 → 개선 → round2 보고서
-7. `README.md`, `Dockerfile`, `run.sh` 채우기
+2. 데이터 보강: `scripts/collect_data.py`(국가법령정보센터·안전보건공단 API로 법령 조문과 단일물질 MSDS를 수집해 `data/`에 스냅샷 저장, 키가 없거나 호출이 실패하면 저장된 스냅샷 사용), `scripts/build_index.py`(BM25·FAISS 검색 인덱스 생성)
+3. `src/config.py`(모델 ID·리전·상위 `.env` 경로·데이터·인덱스 경로를 한곳에서 읽음), `src/llm.py`(ChatBedrockConverse), `src/schemas.py`
+4. 검색 교체: BM25 + FAISS 앙상블, 1순위 정확도 개선
+5. `src/guardrails.py`, `src/agent.py`(Supervisor + ReAct + HITL), `src/api.py`(FastAPI `POST /query`)
+6. `src/mcp_server.py`, LangSmith 연결
+7. `evaluation/run_eval.py` → round1 보고서 → 개선 → round2 보고서
+8. `README.md`, `Dockerfile`, `run.sh` 채우기
+
+## 남은 일정과 완료 기준
+
+1일차의 환경 준비(키·모델·원격 저장소), 서비스 스펙, 평가셋, 데이터·도구 뼈대는 끝났습니다. 남은 1일차 항목은 2일차 앞부분에 붙였습니다.
+
+| 날 | 할 일 | 완료 기준 |
+|---|---|---|
+| 2일차 | 데이터 보강(법 조문 확대, 단일물질 15종), 인덱스, LLM·구조화 출력, `POST /query`, 도구, ReAct, Supervisor, 가드레일, HITL 승인 흐름 | ① 사실 질문 5개에 근거 조문(`contexts`)이 담긴 답 ② "U-01 영향 제품?"에 도구 2개 이상 결합 ③ 승인 대기 → 승인 재개 동작 |
+| 3일차 | MCP, LangSmith 연결, 1차 평가, 개선(검색·프롬프트·가드레일), 2차 평가, 보고서·README·Dockerfile | `round1_report.md`·`round2_report.md`에 통과율, RAGAS 지표, 패턴 적용 위치 기록 |
+
+## 검증 절차
+
+`mini-pjt` 폴더에서 기존 `.venv`의 Python으로 실행합니다. Windows Git Bash 기준입니다.
+
+1. 데이터·인덱스: `../.venv/Scripts/python scripts/collect_data.py && ../.venv/Scripts/python scripts/build_index.py` → 인덱스 폴더가 생성되는지 확인
+2. API: `../.venv/Scripts/python -m uvicorn src.api:app` 실행 후
+   `curl -X POST localhost:8000/query -H "Content-Type: application/json" -d '{"question":"..."}'` → 응답 필드 `answer`, `contexts`, `trace`의 이름과 구조가 [API Spec.md](API%20Spec.md)와 같은지 확인
+3. 승인 흐름: 개정 질문 → "승인 대기 REQ-x" → `{"question": "승인 REQ-x"}` → 확정 초안 반환
+4. LangSmith: `mini-pjt` 프로젝트에서 run과 step이 보이는지 확인
+5. 평가: `../.venv/Scripts/python evaluation/run_eval.py --round 1` → 통과율과 RAGAS 지표 출력, 보고서 생성
+6. 클린 환경: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.env msds-agent` (`.env`는 상위 폴더에 있음)
 
 ## 사용자가 준비할 것
 - ~~AWS 자격 증명과 Bedrock 모델 접근 승인(Claude 계열 + Titan Embed v2, 리전)~~ → 상위 `.env`에 있음, 2026-11-11 실제 호출로 확인
