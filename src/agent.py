@@ -140,7 +140,10 @@ PROMPTS = {
               "성분 함유량을 물으면 제품별 함유량을 함께 적으세요. 특정 성분과 관련된 규제 변경을 물으면 "
               "list_regulation_updates로 사건을 찾고, 법령 개정 사건은 assess_update로 실제 영향 제품을 확인한 뒤 "
               "find_products_by_cas로 그 성분이 든 제품을 찾아 '영향 제품'과 '성분은 있지만 영향 없는 제품(이유)'을 구분해 답하세요. "
-              "사내 변경 사건(배합·제품명 변경)은 법령 개정으로 소개하지 마세요." + COMMON_RULES,
+              "사내 변경 사건(배합·제품명 변경)은 법령 개정으로 소개하지 마세요. "
+              "특정 제품(P-번호)을 물으면 그 제품에 대해서만 답하고, 도구 결과에 나온 다른 제품의 함유량·성분 등 "
+              "묻지 않은 정보는 적지 마세요(예: 'P-006에 벤젠이 있나?'에 다른 제품의 벤젠 함유량을 덧붙이지 않기)."
+              + COMMON_RULES,
     "revision": "당신은 MSDS 개정 판정 담당입니다. 변경 사건(U-번호)마다 get_regulation_update와 assess_update를 "
                 "한 번씩 부르세요(가능하면 한 번에 함께). assess_update 결과에 재제출 판정과 근거 doc_id가 들어 있으므로 "
                 "check_resubmission·search_law는 판정이 불분명할 때만 씁니다. 바꿀 값(변경 전 값)이 필요하면 get_msds로 해당 항목만 "
@@ -232,13 +235,67 @@ def _law_contexts(doc_ids: list[str], as_of: date) -> list[dict]:
     return out
 
 
+# (기존 코드) 제품 MSDS 근거를 JSON 문자열로 — 2차 평가 faithfulness 개선을 위해 문장형으로 교체
+# def _msds_context(pid: str, sections: list[str] | None = None) -> dict:
+#     view = tools.get_msds(pid, sections)
+#     return {"doc_id": f"msds:{pid}", "text": _dumps(view)}
 def _msds_context(pid: str, sections: list[str] | None = None) -> dict:
+    from src import context_text
+
     view = tools.get_msds(pid, sections)
-    return {"doc_id": f"msds:{pid}", "text": _dumps(view)}
+    return {"doc_id": f"msds:{pid}", "text": context_text.msds_text(view)}
 
 
 def contexts_from_tool(name: str, args: dict, result: Any, as_of: date) -> list[dict]:
-    """도구 호출 하나의 결과에서 근거 문서를 뽑습니다(API Spec contexts 형식)."""
+    """도구 호출 하나의 결과에서 근거 문서를 뽑습니다(API Spec contexts 형식).
+
+    (2026-11-12) JSON 대신 문장형 근거(src/context_text.py)를 쓰고, 규칙 판정 결과를 `rule:` 근거로 추가합니다.
+    아래 기존 분기는 주석으로 남겼습니다.
+    """
+    if not isinstance(result, (dict, list)) or (isinstance(result, dict) and "error" in result):
+        return []
+    from src import context_text as T
+
+    if name == "search_law":
+        out = [{"doc_id": c["doc_id"], "text": c["text"]} for c in result.get("applicable", [])]
+        out += [{"doc_id": c["doc_id"], "text": f"[시행 예정 {c['effective_from']}] {c['text']}"}
+                for c in result.get("upcoming", [])]
+        return out
+    if name == "get_msds":
+        return [{"doc_id": result.get("doc_id", f"msds:{args.get('product_id')}"), "text": T.msds_text(result)}]
+    if name == "get_regulation_update":
+        return ([{"doc_id": f"update:{result['id']}", "text": T.update_text(result)}]
+                + _law_contexts(result.get("related_docs", []), as_of))
+    if name == "list_regulation_updates":
+        return [{"doc_id": "catalog:updates", "text": T.updates_catalog_text(result)}]
+    if name == "list_products":
+        return [{"doc_id": "catalog:products", "text": T.products_catalog_text(result)}]
+    if name == "check_resubmission":
+        return ([{"doc_id": f"rule:check_resubmission:{args.get('change', '')}", "text": T.resubmission_text(result)}]
+                + _law_contexts(result.get("doc_ids", []), as_of))
+    if name == "assess_update":
+        uid = result.get("update", {}).get("id", args.get("update_id", ""))
+        out = [{"doc_id": f"rule:assess_update:{uid}", "text": T.assessment_text(result)}]
+        out += _law_contexts(result.get("doc_ids", []), as_of)
+        for a in result.get("affected", []):
+            out.append(_msds_context(a["product_id"], a.get("sections") or None))
+            out += _law_contexts(a.get("resubmission", {}).get("doc_ids", []), as_of)
+        return out
+    if name == "find_products_by_cas":
+        return ([{"doc_id": f"rule:find_products_by_cas:{args.get('cas', '')}",
+                  "text": T.products_by_cas_text(args.get("cas", ""), result)}]
+                + [_msds_context(h["product_id"], ["3"]) for h in result])
+    if name == "find_products_by_term":
+        return [_msds_context(h["product_id"], [args.get("section", "15")]) for h in result]
+    if name == "get_substance":
+        return [{"doc_id": result["doc_id"], "text": T.substance_text(result)}]
+    if name == "classify_mixture":
+        return [{"doc_id": f"msds:{result['product_id']}", "text": T.mixture_text(result)}]
+    return []
+
+
+def _contexts_from_tool_v1(name: str, args: dict, result: Any, as_of: date) -> list[dict]:
+    """(기존 코드) 1·2차 평가 때의 JSON 근거 버전 — 비교용으로 남김, 호출하지 않음."""
     if not isinstance(result, (dict, list)) or (isinstance(result, dict) and "error" in result):
         return []
     if name == "search_law":
@@ -438,10 +495,21 @@ def build_graph(brains: Brains | None = None, checkpointer=None):
         return {"decision": decision, "answer": ans,
                 "trace": [step("hitl_decision", state["req_id"], decision)]}
 
+    # (기존 코드) 답변 마스킹만 — 승인·마스킹·거절 안내의 출처인 서비스 정책을 근거(contexts)로 붙이도록 교체
+    # def output_guard(state: AgentState):
+    #     masked, applied = guardrails.mask_output(state.get("answer", ""))
+    #     return {"answer": masked,
+    #             "trace": [step("output_guard", "answer", "마스킹: " + (", ".join(applied) if applied else "없음"))]}
     def output_guard(state: AgentState):
+        from src import context_text
+
         masked, applied = guardrails.mask_output(state.get("answer", ""))
-        return {"answer": masked,
-                "trace": [step("output_guard", "answer", "마스킹: " + (", ".join(applied) if applied else "없음"))]}
+        upd = {"answer": masked,
+               "trace": [step("output_guard", "answer", "마스킹: " + (", ".join(applied) if applied else "없음"))]}
+        have = {c["doc_id"] for c in state.get("contexts", [])}
+        if context_text.POLICY_DOC_ID not in have and (applied or context_text.needs_policy(masked)):
+            upd["contexts"] = [{"doc_id": context_text.POLICY_DOC_ID, "text": context_text.service_policy_text()}]
+        return upd
 
     g = StateGraph(AgentState)
     g.add_node("input_guard", input_guard)
@@ -538,4 +606,10 @@ def run_query(question: str, graph) -> dict:
         values["trace"] = list(values.get("trace", [])) + [
             step("hitl_interrupt", req_id, "담당자 승인 대기"),
             step("output_guard", "answer", "마스킹: " + (", ".join(applied) if applied else "없음"))]
+        # (추가) 승인 대기 안내('확정·제출은 승인 후에만')의 근거로 서비스 정책을 붙임
+        from src import context_text
+
+        if all(c["doc_id"] != context_text.POLICY_DOC_ID for c in values.get("contexts", [])):
+            values["contexts"] = list(values.get("contexts", [])) + [
+                {"doc_id": context_text.POLICY_DOC_ID, "text": context_text.service_policy_text()}]
     return _response(values)

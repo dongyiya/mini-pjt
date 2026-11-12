@@ -231,6 +231,9 @@ function ctxKind(c) {
   if (c.doc_id.startsWith("msds:")) return ["제품 MSDS", "blue"];
   if (c.doc_id.startsWith("update:")) return ["변경 사건", "gray"];
   if (c.doc_id.startsWith("substance:")) return ["물질 정보", "blue"];
+  // (추가 2026-11-12) 규칙 판정·서비스 정책 근거
+  if (c.doc_id.startsWith("rule:")) return ["규칙 판정", "blue"];
+  if (c.doc_id.startsWith("policy:")) return ["서비스 정책", "gray"];
   return ["목록", "gray"];
 }
 function contextsView(contexts, open = false) {

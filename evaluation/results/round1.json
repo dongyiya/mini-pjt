@@ -19,121 +19,121 @@
   "within_15s": "17/20",
   "tool_coverage_mean": 0.83,
   "ragas_mean": {
-   "faithfulness": null,
-   "answer_relevancy": 0.8411,
-   "context_precision": 1.0,
-   "context_recall": 0.8207
+   "faithfulness": 0.7746,
+   "answer_relevancy": 0.6291,
+   "context_precision": 0.8961,
+   "context_recall": 0.8965
   }
  },
  "ragas": {
   "mean": {
-   "faithfulness": null,
-   "answer_relevancy": 0.8411,
-   "context_precision": 1.0,
-   "context_recall": 0.8207
+   "faithfulness": 0.7746,
+   "answer_relevancy": 0.6291,
+   "context_precision": 0.8961,
+   "context_recall": 0.8965
   },
   "per_case": {
    "1": {
-    "faithfulness": null,
+    "faithfulness": 0.8571,
     "answer_relevancy": 0.8914,
-    "context_precision": null,
-    "context_recall": 0.8
+    "context_precision": 1.0,
+    "context_recall": 1.0
    },
    "2": {
-    "faithfulness": null,
-    "answer_relevancy": 0.859,
-    "context_precision": null,
+    "faithfulness": 0.9167,
+    "answer_relevancy": 0.8588,
+    "context_precision": 1.0,
     "context_recall": 1.0
    },
    "3": {
-    "faithfulness": null,
+    "faithfulness": 0.9333,
     "answer_relevancy": 0.7432,
-    "context_precision": null,
+    "context_precision": 1.0,
     "context_recall": 1.0
    },
    "4": {
-    "faithfulness": null,
+    "faithfulness": 0.7778,
     "answer_relevancy": 0.871,
-    "context_precision": null,
+    "context_precision": 1.0,
     "context_recall": 1.0
    },
    "5": {
-    "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
-    "context_recall": null
+    "faithfulness": 1.0,
+    "answer_relevancy": 0.66,
+    "context_precision": 1.0,
+    "context_recall": 1.0
    },
    "6": {
-    "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
+    "faithfulness": 0.55,
+    "answer_relevancy": 0.4059,
+    "context_precision": 1.0,
     "context_recall": 0.8571
    },
    "7": {
-    "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
+    "faithfulness": 0.7143,
+    "answer_relevancy": 0.4829,
+    "context_precision": 0.8333,
     "context_recall": 0.8
    },
    "8": {
-    "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
+    "faithfulness": 0.8182,
+    "answer_relevancy": 0.7665,
+    "context_precision": 0.5,
     "context_recall": 0.75
    },
    "10": {
-    "faithfulness": null,
-    "answer_relevancy": null,
+    "faithfulness": 0.8889,
+    "answer_relevancy": 0.798,
     "context_precision": 1.0,
-    "context_recall": null
+    "context_recall": 1.0
    },
    "11": {
-    "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
-    "context_recall": null
+    "faithfulness": 0.8889,
+    "answer_relevancy": 0.5925,
+    "context_precision": 1.0,
+    "context_recall": 1.0
    },
    "12": {
-    "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
-    "context_recall": null
+    "faithfulness": 1.0,
+    "answer_relevancy": 0.9052,
+    "context_precision": 1.0,
+    "context_recall": 1.0
    },
    "13": {
-    "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
+    "faithfulness": 0.6667,
+    "answer_relevancy": 0.9354,
+    "context_precision": 0.7,
     "context_recall": 1.0
    },
    "14": {
-    "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
-    "context_recall": null
+    "faithfulness": 0.1154,
+    "answer_relevancy": 0.5852,
+    "context_precision": 1.0,
+    "context_recall": 1.0
    },
    "15": {
-    "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
-    "context_recall": null
+    "faithfulness": 0.7391,
+    "answer_relevancy": 0.4429,
+    "context_precision": 1.0,
+    "context_recall": 1.0
    },
    "16": {
     "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
+    "answer_relevancy": 0.1816,
+    "context_precision": 0.3667,
     "context_recall": 0.5
    },
    "17": {
-    "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
-    "context_recall": null
+    "faithfulness": 0.8125,
+    "answer_relevancy": 0.5741,
+    "context_precision": 0.8333,
+    "context_recall": 0.3333
    },
    "20": {
-    "faithfulness": null,
-    "answer_relevancy": null,
-    "context_precision": null,
-    "context_recall": 0.5
+    "faithfulness": 0.7143,
+    "answer_relevancy": 0.0,
+    "context_precision": 1.0,
+    "context_recall": 1.0
    }
   },
   "n": 17

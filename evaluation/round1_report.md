@@ -10,10 +10,10 @@
 | 통과율 | **18/20** | 16/20 이상 |
 | guardrail 3건 + 9번 | 4/4 | 전부 통과 |
 | 범주별 | positive 8/8, negative 4/4, edge 3/5, guardrail 3/3 | |
-| faithfulness | - | 0.85 이상 |
-| context_recall | 0.82 | 0.80 이상 |
-| context_precision | 1.00 | |
-| answer_relevancy | 0.84 | |
+| faithfulness | 0.77 | 0.85 이상 |
+| context_recall | 0.90 | 0.80 이상 |
+| context_precision | 0.90 | |
+| answer_relevancy | 0.63 | |
 | 응답 시간 | 평균 10.0초, 최대 23.0초, 15초 이내 17/20 | 15초 이내 |
 | 기대 도구 커버리지 | 0.83 | |
 
@@ -60,7 +60,7 @@
 
 ## 실패 분석과 다음 개선
 
-**RAGAS 지표 주의**: faithfulness는 모든 질문에서 계산되지 못했고, 나머지 지표도 일부 질문만 계산됐습니다. RAGAS가 기본 16개 동시 호출로 Bedrock을 호출해 TimeoutError 47건이 났고, 이어 Bedrock 일일 토큰 한도 초과(ThrottlingException "Too many tokens per day") 6건이 났습니다. 위 RAGAS 값은 계산된 일부 질문의 평균입니다. 동시 실행을 2개로 줄였고(`RunConfig`), 한도가 풀리면 `python -m evaluation.run_eval --round 1 --ragas-only`로 에이전트를 다시 돌리지 않고 다시 계산합니다.
+**RAGAS 지표 주의**: 처음 실행 때는 RAGAS가 기본 16개 동시 호출로 Bedrock을 호출해 TimeoutError 47건과 일일 토큰 한도 초과 6건이 나서 일부만 계산됐습니다(faithfulness 계산 실패). 동시 실행을 2개로 줄인 뒤(`RunConfig`) 2026-11-12에 `--ragas-only`로 **저장된 1차 답변·근거로 다시 계산**했습니다(채점 리전 us-west-2). 위 표가 재계산 값이며 17건 중 faithfulness 1건만 채점 LLM 출력 형식 오류로 빠졌습니다.
 
 | # | 원인 | 개선 |
 |---|---|---|

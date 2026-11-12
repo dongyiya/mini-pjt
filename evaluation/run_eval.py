@@ -163,6 +163,18 @@ def run_ragas(rows: list[dict]) -> dict:
 
 
 # ---------------------------------------------------------------- 실행
+DAILY_LIMIT = "Too many tokens per day"
+
+
+def abort_on_daily_limit(case_id: str, stage: str) -> None:
+    """Bedrock 일일 토큰 한도 초과 → 결과 파일·보고서를 쓰지 않고 멈춥니다."""
+    model = os.getenv("BEDROCK_MODEL_ID", "")
+    print(f"\n[중단] {case_id}번 {stage} 중 Bedrock 일일 토큰 한도 초과(모델 {model}). 결과 파일·보고서는 쓰지 않았습니다.\n"
+          "짧은 호출은 통과해도 긴 요청은 막힐 수 있습니다. 한도가 풀린 뒤 다시 실행하거나 AWS Service Quotas에서 한도 상향을 요청하세요.",
+          flush=True)
+    raise SystemExit(2)
+
+
 def run(round_no: int, only: set[str] | None, skip_ragas: bool) -> dict:
     from src.agent import build_graph, run_query, sqlite_checkpointer
     from src.llm import get_chat_model
@@ -183,9 +195,20 @@ def run(round_no: int, only: set[str] | None, skip_ragas: bool) -> dict:
             error = None
         except Exception as e:
             resp, error = {"answer": "", "contexts": [], "trace": []}, f"{type(e).__name__}: {e}"
+        # (추가) Bedrock 일일 토큰 한도 초과면 엉뚱한 실패를 쌓지 않고 바로 멈춤 (2026-11-12 2차 평가 중단 대응)
+        if error and DAILY_LIMIT in error:
+            abort_on_daily_limit(c["id"], "에이전트 실행")
         latency = round(time.time() - t, 1)
         called = called_tools(resp["trace"])
-        verdict = judge_case(c, resp["answer"], judge_model)
+        # (기존 코드) verdict = judge_case(c, resp["answer"], judge_model)
+        try:
+            verdict = judge_case(c, resp["answer"], judge_model)
+        except Exception as e:
+            if DAILY_LIMIT in str(e):
+                abort_on_daily_limit(c["id"], "채점(LLM-as-Judge)")
+            raise
+        if error:
+            print(f"[{c['id']:>2}] 오류: {error[:200]}", flush=True)
         d = decide(c, verdict, called)
         if error:
             d["pass"] = False

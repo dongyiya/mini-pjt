@@ -3,7 +3,8 @@
 > 이 문서는 작업 인계용입니다. **CLAUDE.md의 규칙이 이 문서보다 우선합니다.** 충돌하면 CLAUDE.md를 따릅니다.
 
 - 마지막 갱신: 2026-11-12 저녁 (2일차 구현·UI·문서 정리 반영)
-- **지금 상태 한 줄 요약**: 백엔드(에이전트·RAG·MCP·HITL·API)와 화면(탭 4개)까지 구현 완료. 1차 평가 18/20. 남은 일은 Bedrock 일일 토큰 한도 때문에 못 돌린 **2차 평가와 RAGAS 재계산** → [evaluation/round2_report.md](evaluation/round2_report.md)
+- **지금 상태 한 줄 요약**: 백엔드(에이전트·RAG·MCP·HITL·API)와 화면(탭 4개)까지 구현 완료. 1차 평가 18/20 → **2차 평가 19/20**(필수 4/4, 16·17번 개선 확인, 12번 새 실패). RAGAS faithfulness 0.78로 목표 0.85 미달 → [evaluation/round2_report.md](evaluation/round2_report.md)
+- **리전 변경 (2026-11-12)**: us-east-1 일일 토큰 한도 때문에 사용자가 `.env`를 **us-west-2 + `us.anthropic.claude-sonnet-4-6`**으로 변경. 2차 평가는 이 설정으로 실행. (중간에 시도한 `global.anthropic.claude-sonnet-4-5-20250929-v1:0`도 긴 요청은 한도 초과)
 
 ## 저장소 상태
 
@@ -140,7 +141,9 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 | 승인 → MSDS 반영 (2026-11-12, **시험 기능**) | 승인하면 `src/msds_revision.py`가 변경을 `data/msds/products.json`에 반영(개정판 +1, 개정일=승인일), 이전 판은 `data/msds/history/`, 기록은 `revision_log.json`(둘 다 커밋 제외). **(나)안**: '확인 필요'(U-01 '유독물질' 대체 표기)는 담당자 입력 없이는 승인 불가. 입력 형식은 승인 문장 다음 줄 `P-001 15번: 사고대비물질(톨루엔)`. 화면은 추천 문구(안전보건공단 단일물질 자료의 화관법 규제)를 미리 채우고 사유를 툴팁·별도 상자로 표시. 서버 시작 시 체크포인트의 승인 대기 건을 승인함에 자동으로 불러옴 |
 | **평가 전 원복 (2026-11-12 사용자 결정)** | 승인 반영은 시험 기능이므로 **평가는 항상 원래 데모 데이터로**. `evaluation/run_eval.py`가 시작할 때 `reset_to_baseline()`으로 `products.json`을 기준본 `data/msds/products.baseline.json`(커밋됨, 원래 데모 데이터)으로 되돌리고 이력 삭제. 수동: `./run.sh reset-msds`. `products.json`이 바뀐 상태로 커밋하지 않도록 주의 |
 | 수집 주기 (2026-11-12 결정) | **수동 버튼만** 사용. 자동 주기 수집은 두지 않음. 법령 개정 시 UI '법령 가져오기'(= `/query` "법령 갱신") 또는 `./run.sh setup` |
-| 남은 일 | 16·17번 개선 코드 반영 완료(판정 사후 검증 `sanitize_judgment`, impact 프롬프트) → 한도 풀리면 ① 2차 평가 ② 1차 RAGAS 재계산 ③ README의 RAGAS·통과율 갱신. 그 밖: 응답 시간(15초 초과 3/20), Docker 빌드 검증, 시행령·고시 수집, 원격 push |
+| 2차 평가 (2026-11-12 완료) | us-west-2에서 19/20 통과, 평균 8.6초. RAGAS faithfulness 0.78 / context_recall 0.87 / context_precision 0.90 / answer_relevancy 0.61. 평가 스크립트는 일일 토큰 한도 초과 시 바로 멈추도록 수정 |
+| 2차 이후 개선 (2026-11-12, **미검증**) | 12번 대응 impact 지시, 근거 문장형(`src/context_text.py`), 규칙 판정(`rule:`)·서비스 정책(`policy:service`) 근거 추가. **사용자 결정: 3차 평가는 실행하지 않고 2차 결과를 최종으로 함** → round2_report.md 마지막 절 |
+| 남은 일 | (선택) 3차 평가로 개선 효과 검증 `python -m evaluation.run_eval --round 3`, Docker 빌드 검증, 시행령·고시 수집, 원격 push |
 
 ## 시행일 기준 조문 선택 (2026-11-12 요청)
 

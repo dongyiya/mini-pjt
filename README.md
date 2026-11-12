@@ -60,17 +60,27 @@ API는 [API Spec.md](API%20Spec.md)를 따릅니다: `POST /query`, 요청 `{"qu
 Docker: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.env msds-agent` (이 PC에 Docker가 없어 이미지 빌드는 검증하지 못했습니다)
 
 ## RAGAS 평가 결과
-1차 평가(2026-11-12, `us.anthropic.claude-sonnet-4-6`) 기준입니다. RAGAS 계산 중 Bedrock 시간 초과·일일 토큰 한도 초과가 나서 **일부 질문만 계산됐습니다**. 재계산은 `python -m evaluation.run_eval --round 1 --ragas-only`.
+2차 평가(최종, 2026-11-12, `us.anthropic.claude-sonnet-4-6`, us-west-2) 기준, contexts가 있는 17건 모두 계산:
 
-- context_recall: 0.82 (10건 계산)
-- context_precision: 1.00 (1건 계산)
-- faithfulness: 계산 실패 (재계산 필요)
-- answer_relevancy: 0.84 (4건 계산)
+- context_recall: 0.87 (목표 0.80 이상 ✅)
+- context_precision: 0.90
+- faithfulness: 0.78 (목표 0.85 이상 ❌ — 원인과 이후 반영한 개선은 아래 '남은 한계' 참고)
+- answer_relevancy: 0.61
+
+| 지표 | 1차 | 2차 (최종) | 목표 |
+|---|---|---|---|
+| faithfulness | 0.77 | 0.78 | 0.85 이상 |
+| context_recall | 0.90 | 0.87 | 0.80 이상 |
+| context_precision | 0.90 | 0.90 | |
+| answer_relevancy | 0.63 | 0.61 | |
+
+1차 RAGAS는 처음 실행 때 Bedrock 시간 초과·한도 초과로 일부만 계산돼, 저장된 1차 답변으로 다시 계산한 값입니다(`--ragas-only`). 1·2차가 거의 같은 것은 2차 개선(16·17번)이 판정 정확도를 고친 것이지 근거 형식을 바꾼 것이 아니기 때문입니다.
 
 ## 인-아웃 세트 통과율 (자체 평가)
 - 1차: **18 / 20 통과** (guardrail 3건 + 범위 밖 9번 모두 통과, 평균 응답 10.0초) → [evaluation/round1_report.md](evaluation/round1_report.md)
-- 2차: 미실시 — 개선 코드 반영 후 실행했으나 Bedrock 일일 토큰 한도 초과로 중단 → [evaluation/round2_report.md](evaluation/round2_report.md)
-- 개선폭: 2차 평가 후 기입 (개선 대상: 16번 판정 환각 → 도구 결과 사후 검증, 17번 영향 제품 누락 → impact 프롬프트 보강)
+- 2차: **19 / 20 통과** (필수 4건 모두 통과, 평균 응답 8.6초, 15초 이내 18/20) → [evaluation/round2_report.md](evaluation/round2_report.md)
+- 개선폭: **+1건** (주요 개선 사항: 16번 판정 환각 → LLM 판정을 규칙 도구 결과로 사후 검증, 17번 영향 제품 누락 → 영향 분석 지시 보강. 대신 12번이 묻지 않은 다른 제품 수치를 덧붙여 새로 실패)
+- 1차는 us-east-1, 2차는 us-west-2에서 같은 모델 이름으로 실행했습니다(us-east-1 일일 토큰 한도 때문).
 
 ## 트라이앤에러 회고
 - 시도했지만 실패한 접근 · 왜 실패했는가
@@ -83,8 +93,10 @@ Docker: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.
   - 판정의 뼈대(영향 제품·항목·재제출)는 **규칙 도구**(`assess_update`, `check_resubmission`)가 정하고, LLM은 도구 선택·설명·초안 문장을 맡게 했습니다. 법적 판단을 LLM 기억에 맡기지 않고 원문 조문과 규칙으로 고정하기 위해서입니다.
   - HITL·법령 갱신을 **새 엔드포인트 없이 `/query` 명령**으로 처리해 API Spec을 그대로 지켰습니다.
 - 남은 한계 · 향후 개선 방향
-  - Bedrock 일일 토큰 한도 때문에 2차 평가와 RAGAS 재계산이 남았습니다(한도 상향 요청 또는 날을 나눠 실행).
-  - 응답 시간: 1차에서 15초 초과 3건(최대 23초). 리랭크 후보 축소나 검색 횟수 줄이기로 개선할 수 있습니다.
+  - **faithfulness 0.78로 목표(0.85) 미달**: 법령 질문은 0.80~1.00으로 높지만, 제품·개정 판정 질문은 근거가 JSON이라 대조가 어렵고 승인 안내 문구의 출처가 근거에 없어 낮았습니다. 2차 이후 근거를 문장형으로 바꾸고 규칙 판정·서비스 정책을 근거로 추가했으며, 12번 대응 지시도 넣었습니다. 다만 **3차 평가는 돌리지 않아 효과는 미검증**입니다(`python -m evaluation.run_eval --round 3`).
+  - Bedrock 일일 토큰 한도: 평가 한 번(20문항+채점+RAGAS)이 하루 한도에 가깝습니다. 리전 변경(us-west-2)으로 2차를 마쳤고, 평가 스크립트는 한도 초과 시 바로 멈추도록 했습니다.
+  - 응답 시간: 2차 평균 8.6초, 15초 초과 2건(최대 18.3초). 리랭크 후보 축소나 검색 횟수 줄이기로 개선할 수 있습니다.
+  - 승인 → MSDS 반영은 시험 기능입니다. 평가 전에는 원래 데모 데이터로 자동 원복합니다.
   - 수집 범위: 산업안전보건법 시행령과 MSDS 고시는 아직 수집하지 않아, 혼합물 최종 분류는 계산하지 않고 '확인 필요' 검토 목록만 냅니다.
   - MCP를 거친 도구 호출은 LangSmith에서 본 실행 아래가 아니라 별도 run으로 기록됩니다.
   - 화면의 승인함 목록은 브라우저에만 저장됩니다(승인 대기 상태 자체는 서버 체크포인트에 있음).
