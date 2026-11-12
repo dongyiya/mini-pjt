@@ -2,15 +2,18 @@
 
 LLM을 쓰지 않습니다. 화면을 열 때 GET / 가 이 데이터를 HTML 에 넣어 보냅니다(API Spec 의 /query 는 그대로).
 
-변경 작업(op) 형식 — 화면(src/static/index.html applyOps)이 변경 전 MSDS 에 적용해 변경 후 MSDS 를 만듭니다.
+변경 작업(op) 형식 — 화면(src/api/static/index.html applyOps)이 변경 전 MSDS 에 적용해 변경 후 MSDS 를 만듭니다.
 - {"op": "set", "section": "1", "field": "name", "before", "after"}            제품명 변경
 - {"op": "component", "section": "3", "name", "field": "content", "before", "after"}  성분 함유량 변경
 - {"op": "add", "section": "2", "value"}                                        유해성 분류 추가
-- {"op": "remove", "section": "15", "law", "value", "note"}                     규제 표기 삭제(+확인 필요 메모)
+- {"op": "replace", "section": "15", "law", "value", "needs_input": true, "suggest", "suggest_source", "reason", "note"}
+                                                                                규제 표기 교체(대체 표기는 담당자 입력 필수)
+  (2026-11-12 정리) 예전 "remove"(표기 삭제) op 는 담당자 입력을 받는 "replace" 로 바뀌었습니다.
 
 U-02~U-04(가상 사내 사건)는 data/regulation_updates.json 의 "changes" 를 그대로 씁니다.
-U-01(실제 법 개정)처럼 match.term 으로 찾는 사건은 해당 표기를 삭제하는 op 를 규칙으로 만들고,
-대체 표기는 정하지 않고 '확인 필요' 메모와 안전보건공단 단일물질 자료의 화학물질관리법 규제를 참고로 붙입니다.
+U-01(실제 법 개정)처럼 match.term 으로 찾는 사건은 해당 표기를 바꾸는 replace op 를 규칙으로 만듭니다.
+대체 표기는 정하지 않고(needs_input) 담당자가 승인 때 입력하며, 안전보건공단 단일물질 자료의 화학물질관리법 규제를
+추천 문구(suggest)로, 그 이유(reason)와 '확인 필요' 메모(note)를 함께 붙입니다.
 """
 
 from __future__ import annotations

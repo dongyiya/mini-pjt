@@ -59,7 +59,7 @@ def query(req: QueryRequest):
 
 
 # --- 사용자 화면 (2026-11-12 추가) -----------------------------------------------------------
-# GET /  → src/static/index.html. 화면의 모든 버튼은 POST /query 만 호출합니다(API Spec 그대로).
+# GET /  → src/api/static/index.html. 화면의 모든 버튼은 POST /query 만 호출합니다(API Spec 그대로).
 # 변경 사건·제품 목록과 법령 기준일은 화면을 열 때 데이터 파일에서 읽어 HTML 에 넣어 보냅니다(별도 API 없음).
 import json as _json
 from pathlib import Path as _Path
@@ -69,7 +69,7 @@ from fastapi.responses import HTMLResponse
 # (기존 코드) from src import retriever as _retriever
 from src.regulation import retriever as _retriever
 # (기존 코드) from src import tools as _tools
-from src.tools import msds_tools as _tools
+# (기존 코드) from src.tools import msds_tools as _tools  — 현재 쓰는 곳이 없어 주석 처리 (2026-11-12)
 # (기존 코드) from src.config import LAW_DIR as _LAW_DIR
 from src.shared.config import LAW_DIR as _LAW_DIR
 

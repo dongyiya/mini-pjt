@@ -1,8 +1,8 @@
-"""MCP 클라이언트 브리지 — src/mcp_server.py 에 stdio로 붙어 MCP 도구를 동기 LangChain 도구로 제공합니다.
+"""MCP 클라이언트 브리지 — src/tools/mcp_server.py 에 stdio로 붙어 MCP 도구를 동기 LangChain 도구로 제공합니다.
 
 - 백그라운드 스레드의 이벤트 루프에서 MCP 세션 하나를 계속 열어 두고(서버 프로세스 1개), 도구 호출을 그 루프로 넘깁니다.
 - 에이전트 그래프는 동기로 돌기 때문에, 비동기 MCP 도구를 동기 함수로 감쌉니다.
-- 서버를 띄우지 못하면 None 을 돌려주고, 에이전트는 로컬 도구로 대신합니다(src/agent.py make_tools).
+- 서버를 띄우지 못하면 None 을 돌려주고, 에이전트는 로컬 도구로 대신합니다(src/agents/brains.py make_tools).
 """
 
 from __future__ import annotations

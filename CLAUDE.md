@@ -20,7 +20,7 @@ scripts/      데이터 수집(collect_data.py: 법령, collect_substances.py: �
 data/         사용한 문서·데이터 (laws/<법령>@<시행일>.md, msds/, substances/, regulation_updates.json)
 evaluation/   평가셋(test_queries.csv), 평가 스크립트(run_eval.py), 결과(results/, round1/round2_report.md)
 tests/        단위 테스트
-docs/         사용자 매뉴얼
+docs/         사용자 매뉴얼, spec/(src .py 파일별 프로그램 사양서, 도메인 폴더 구조 동일)
 index/        검색 인덱스 (build_index.py가 생성, 커밋 제외)
 SERVICE.md    서비스 스펙
 README.md     프로젝트 설명

@@ -3,8 +3,8 @@
     ../.venv/Scripts/python -m src.tools.mcp_server  # stdio 전송 (기존: -m src.mcp_server)
 
 - 노출 도구: get_msds, list_products, find_products_by_cas, find_products_by_term, get_substance, classify_mixture
-- 영업비밀·연락처 마스킹은 src/tools.py 단계에서 이미 적용되므로 MCP 경계 밖으로 원본이 나가지 않습니다.
-- 에이전트는 src/mcp_client.py 로 이 서버에 붙어 도구를 호출합니다.
+- 영업비밀·연락처 마스킹은 src/tools/msds_tools.py 단계에서 이미 적용되므로 MCP 경계 밖으로 원본이 나가지 않습니다.
+- 에이전트는 src/tools/mcp_client.py 로 이 서버에 붙어 도구를 호출합니다.
 """
 
 from __future__ import annotations

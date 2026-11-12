@@ -9,6 +9,7 @@
 |---|---|
 | [SERVICE.md](SERVICE.md) | 서비스 스펙: 사용자·문제, 도구·데이터, 서비스 정책, 성공 기준 |
 | [docs/사용자_매뉴얼.md](docs/사용자_매뉴얼.md) | 화면·질문·승인 사용법, 서버 운영 |
+| [docs/spec/](docs/spec/README.md) | `src/` 파일별 프로그램 사양서 (도메인 폴더별 24개) |
 | [API Spec.md](API%20Spec.md) | `POST /query` 입출력 |
 | [evaluation/round1_report.md](evaluation/round1_report.md), [round2_report.md](evaluation/round2_report.md) | 1·2차 평가 보고서 |
 | [HANDOFF.md](HANDOFF.md) | 인계용 현재 상태와 남은 일 |

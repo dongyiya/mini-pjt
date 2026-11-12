@@ -15,7 +15,9 @@ from pathlib import Path
 from typing import Any
 
 # (기존 코드) DATA_DIR = Path(__file__).resolve().parent.parent / "data"   (src/tools.py 위치 기준)
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"   # mini-pjt/data (src/tools/msds_tools.py 위치 기준)
+# (기존 코드) DATA_DIR = Path(__file__).resolve().parents[2] / "data"   # mini-pjt/data (src/tools/msds_tools.py 위치 기준)
+#   — CLAUDE.md 경로 계산 규칙에 따라 shared/config.py 의 DATA_DIR 사용 (같은 경로, 2026-11-12)
+from src.shared.config import DATA_DIR  # noqa: E402
 
 # 산업안전보건법 시행규칙 제159조제1항: 변경 시 MSDS를 다시 제출해야 하는 사항
 RESUBMISSION_ITEMS = {

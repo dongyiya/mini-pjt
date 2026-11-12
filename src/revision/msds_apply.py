@@ -1,6 +1,6 @@
 """승인된 개정 초안을 제품 MSDS(data/msds/products.json)에 반영합니다. (2026-11-12 사용자 요청, (나)안)
 
-- 반영 내용: 승인 요청(REQ)의 질문에 나온 변경 사건(U-번호)과 판정 제품에 대한 변경 작업(op, src/revision_preview.update_ops)
+- 반영 내용: 승인 요청(REQ)의 질문에 나온 변경 사건(U-번호)과 판정 제품에 대한 변경 작업(op, src/revision/preview.py update_ops)
 - '확인 필요' 항목(op = replace, needs_input)은 담당자가 대체 표기를 입력해야 승인됩니다.
   입력 형식(승인 문장 다음 줄부터): `P-001 15번: 사고대비물질(톨루엔)`
 - 반영할 때 개정판 번호 +1, 개정일 = 승인일. 바꾸기 전 제품 MSDS 는 data/msds/history/ 에 보관하고,
