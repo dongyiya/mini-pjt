@@ -22,7 +22,16 @@ from src.agent import build_graph, run_query, sqlite_checkpointer
 from src.schemas import QueryRequest, QueryResponse
 
 log = logging.getLogger("msds-agent")
-app = FastAPI(title="MSDS 개정 지원 에이전트", version="0.1.0")
+
+
+class UTF8JSONResponse(JSONResponse):
+    """Content-Type 에 charset=utf-8 을 명시합니다(Windows PowerShell 5.1 Invoke-RestMethod 한글 깨짐 방지)."""
+    media_type = "application/json; charset=utf-8"
+
+
+# (기존 코드) 기본 JSONResponse — charset 이 없어 PowerShell 5.1 에서 한글이 깨져 교체
+# app = FastAPI(title="MSDS 개정 지원 에이전트", version="0.1.0")
+app = FastAPI(title="MSDS 개정 지원 에이전트", version="0.1.0", default_response_class=UTF8JSONResponse)
 
 
 @lru_cache(maxsize=1)
@@ -44,4 +53,4 @@ def query(req: QueryRequest):
         log.exception("query failed")
         body = QueryResponse(answer="처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.", contexts=[],
                              trace=[{"step": "error", "input": req.question, "output": type(e).__name__}])
-        return JSONResponse(status_code=500, content=body.model_dump())
+        return UTF8JSONResponse(status_code=500, content=body.model_dump())

@@ -28,6 +28,12 @@ def test_health(client):
     assert client.get("/health").json() == {"status": "ok"}
 
 
+def test_response_declares_utf8(client):
+    r = client.post("/query", json={"question": "다음 주 코스피 전망 알려줘"})
+    assert r.headers["content-type"] == "application/json; charset=utf-8"
+    assert "MSDS" in r.json()["answer"]
+
+
 def test_query_and_approval_flow(client):
     r = client.post("/query", json={"question": "U-02 배합 변경 후 P-002 MSDS를 다시 제출해야 하나요?"})
     assert r.status_code == 200

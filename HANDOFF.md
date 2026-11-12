@@ -124,6 +124,9 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 | 법령 수동 갱신 | (사용자 결정) UI '법령 가져오기' 버튼 = `/query`에 "법령 갱신" 명령. `src/law_refresh.py`: 수집 → 조문 비교 → 바뀌었으면 인덱스 재생성. 실제 실행 7초, 바뀐 조문 없음. UI 시안 통합 아트보드에 버튼·결과 패널 반영 |
 | 8 배포 | `run.sh`(setup/index/serve/test/eval1/eval2), `Dockerfile`(python:3.14-slim), `.dockerignore`. **Docker 미설치라 이미지 빌드는 검증 못 함** |
 | **막힌 것** | 2026-11-12 Bedrock **채팅 모델 일일 토큰 한도 소진**(ThrottlingException "Too many tokens per day"). 임베딩은 정상. 한도가 풀리면: ① `python -m evaluation.run_eval --round 1 --ragas-only` ② 16·17번 개선 ③ 2차 평가 |
+| 모델 변경 (2026-11-12) | 사용자가 `.env`의 `BEDROCK_MODEL_ID`를 `global.anthropic.claude-sonnet-4-6`으로 변경. 호출 정상, 단위 132개·live 4개 통과(live 3분 27초로 이전보다 느림). 2차 평가 도중 다시 일일 토큰 한도 초과로 중단(1·2번이 빈 답으로 실패, 채점 단계 중단) → 결과 미저장. 같은 계정 한도를 공유하는 것으로 보임 |
+| 사용자 매뉴얼 | `docs/사용자_매뉴얼.md` (EHS 담당자 대상: 질문 예시, 승인·반려, 기준일, 법령 가져오기, 답변 읽는 법, 거절 요청, 문제 해결, 서버 켜기 부록). PowerShell 예시 실제 확인 |
+| API 수정 | 응답 Content-Type 에 `charset=utf-8` 명시(`UTF8JSONResponse`) — Windows PowerShell 5.1 Invoke-RestMethod 한글 깨짐 수정. 응답 필드 구조는 그대로 |
 | 수집 주기 (2026-11-12 결정) | **수동 버튼만** 사용. 자동 주기 수집은 두지 않음. 법령 개정 시 UI '법령 가져오기'(= `/query` "법령 갱신") 또는 `./run.sh setup` |
 | 남은 일 | 16·17번 개선 코드 반영 완료(판정 사후 검증 `sanitize_judgment`, impact 프롬프트) → 한도 풀리면 1차 RAGAS 재계산, 2차 평가 보고서, README 작성 |
 
