@@ -1,7 +1,9 @@
 # 미니 PJT: MSDS 개정 지원 에이전트
 
 ## 무엇을 푸나
-화학물질 규제나 제품 배합이 바뀌면 어떤 제품 MSDS의 몇 번 항목을 고치고 공단에 다시 제출해야 하는지를 근거 조문과 함께 알려 주고, 담당자 승인을 받아 개정 초안까지 만듭니다. 대상 사용자는 중소 화학업체 EHS 담당자이고, 데모는 가상 회사 '한빛케미칼' 제품 6개로 합니다.
+중소 화학업체 EHS 담당자가 화학물질 규제나 제품 배합이 바뀔 때마다 어떤 제품 MSDS의 몇 번 항목을 고치고 공단에 다시 제출해야 하는지 판단하기 어려운 문제를, 근거 조문과 함께 판정하고 담당자 승인을 받아 개정 초안까지 만들어 풉니다.
+
+(데모: 가상 회사 '한빛케미칼' 제품 6개)
 
 | 문서 | 내용 |
 |---|---|
@@ -94,22 +96,20 @@ API는 [API Spec.md](API%20Spec.md)를 따릅니다: `POST /query`, 요청 `{"qu
 Docker: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.env msds-agent` (이 PC에 Docker가 없어 이미지 빌드는 검증하지 못했습니다)
 
 ## RAGAS 평가 결과
-최종 결과는 2차 평가입니다(2026-11-12, `us.anthropic.claude-sonnet-4-6`, us-west-2, contexts가 있는 17건 모두 계산).
+- context_recall: 0.87 (목표 0.80 이상 ✅ · 1차 0.90)
+- context_precision: 0.90 (1차 0.90)
+- faithfulness: 0.78 (목표 0.85 이상 ❌ · 1차 0.77)
+- answer_relevancy: 0.61 (1차 0.63)
 
-| 지표 | 1차 | 2차 (최종) | 목표 |
-|---|---|---|---|
-| faithfulness | 0.77 | 0.78 | 0.85 이상 ❌ |
-| context_recall | 0.90 | 0.87 | 0.80 이상 ✅ |
-| context_precision | 0.90 | 0.90 | |
-| answer_relevancy | 0.63 | 0.61 | |
+위 값은 최종인 2차 평가 기준입니다(2026-11-12, `us.anthropic.claude-sonnet-4-6`, us-west-2, contexts가 있는 17건 모두 계산).
 
 - 1차 RAGAS는 처음 실행 때 Bedrock 시간 초과·한도 초과로 일부만 계산돼, 저장된 1차 답변으로 다시 계산한 값입니다(`--ragas-only`).
 - 1·2차 값이 거의 같은 것은 2차 개선(16·17번)이 판정 정확도를 고친 것이지 근거 형식을 바꾼 것이 아니기 때문입니다.
 - faithfulness 미달 원인과 이후 개선은 아래 '남은 한계'에 있습니다.
 
 ## 인-아웃 세트 통과율 (자체 평가)
-- 1차: **18 / 20 통과** (guardrail 3건 + 범위 밖 9번 모두 통과, 평균 응답 10.0초) → [evaluation/round1_report.md](evaluation/round1_report.md)
-- 2차: **19 / 20 통과** (필수 4건 모두 통과, 평균 응답 8.6초, 15초 이내 18/20) → [evaluation/round2_report.md](evaluation/round2_report.md)
+- 1차 (Day 9 종료): **18 / 20 통과** (guardrail 3건 + 범위 밖 9번 모두 통과, 평균 응답 10.0초) → [evaluation/round1_report.md](evaluation/round1_report.md)
+- 2차 (Day 10 개선 후): **19 / 20 통과** (필수 4건 모두 통과, 평균 응답 8.6초, 15초 이내 18/20) → [evaluation/round2_report.md](evaluation/round2_report.md)
 - 개선폭: **+1건** (16번 판정 환각 → LLM 판정을 규칙 도구 결과로 사후 검증, 17번 영향 제품 누락 → 영향 분석 지시 보강. 대신 12번이 묻지 않은 다른 제품 수치를 덧붙여 새로 실패)
 - 1차는 us-east-1, 2차는 us-west-2에서 같은 모델 이름으로 실행했습니다(us-east-1 일일 토큰 한도 때문).
 
@@ -134,11 +134,13 @@ Docker: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.
   - 리팩토링 후 단위 테스트는 실행하지 않았습니다(테스트 파일의 import 경로만 갱신).
 
 ## 핵심 코드 위치
-- [src/workflows/graph.py:92](src/workflows/graph.py#L92) — 메인 에이전트 그래프 `build_graph` (input_guard → supervisor → 서브 에이전트 → approval → output_guard)
+템플릿의 `src/agent.py`·`src/tools.py`·`src/retriever.py`는 도메인 폴더로 나눠 두었습니다(위 '제출 템플릿 구조와의 대응' 표).
+
+- [src/workflows/graph.py:92](src/workflows/graph.py#L92) — 메인 에이전트 그래프 `build_graph` (템플릿의 `src/agent.py`. input_guard → supervisor → 서브 에이전트 → approval → output_guard)
+- [src/tools/msds_tools.py](src/tools/msds_tools.py) — 도메인 도구 11개 (템플릿의 `src/tools.py`. `assess_update` 182행, `check_resubmission` 154행, `search_law` 222행)
+- [src/regulation/retriever.py:389](src/regulation/retriever.py#L389) — RAG 파이프라인 `search` (템플릿의 `src/retriever.py`. 하이브리드 검색·리랭크·시행일 판 선택)
 - [src/workflows/graph.py:229](src/workflows/graph.py#L229) — `run_query`: `/query` 처리, 승인/반려 재개, 법령 갱신 명령
 - [src/agents/](src/agents/) — 프롬프트(`prompts.py`), LLM 라우터·ReAct·판정(`brains.py`), 구조화 출력 스키마(`schemas.py`), 판정 사후 검증 [`sanitize_judgment`](src/agents/judgment.py#L18)
-- [src/tools/msds_tools.py](src/tools/msds_tools.py) — 도메인 도구 11개 (`assess_update` 182행, `check_resubmission` 154행, `search_law` 222행)
-- [src/regulation/retriever.py:389](src/regulation/retriever.py#L389) — RAG 파이프라인 `search` (하이브리드 검색·리랭크·시행일 판 선택)
 - [src/guardrails/guard.py](src/guardrails/guard.py) — 입력 차단 `check_input`, 출력 마스킹 `mask_output`
 - [src/tools/mcp_server.py](src/tools/mcp_server.py), [src/tools/mcp_client.py](src/tools/mcp_client.py) — MCP 서버·클라이언트 브리지
 - [src/revision/msds_apply.py](src/revision/msds_apply.py) — 승인 후 MSDS 반영·원복

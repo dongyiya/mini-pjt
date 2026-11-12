@@ -99,13 +99,25 @@ def ui() -> HTMLResponse:
     # (기존 코드) from src.revision_preview import pending_requests
     from src.revision.preview import pending_requests
 
+    # (기존 코드) 승인 대기 건만 전달 — '중복 요청'으로 닫힌 건 번호도 전달해 브라우저 승인함에서 지우도록 교체 (2026-11-12)
+    # try:
+    #     graph = get_graph()
+    #     pending = pending_requests(graph, graph.checkpointer)
+    # except Exception:  # 체크포인트를 읽지 못해도 화면은 열리게 함
+    #     log.exception("pending requests load failed")
+    #     pending = []
+    # boot = {**build_ui_data(), "laws": laws, "pending": pending,
+    #         "lawsAsOf": max((x["collected"] for x in laws if x["collected"]), default="")}
+    from src.revision.dedupe import closed_duplicate_ids
+
     try:
         graph = get_graph()
         pending = pending_requests(graph, graph.checkpointer)
+        duplicates = closed_duplicate_ids(graph)
     except Exception:  # 체크포인트를 읽지 못해도 화면은 열리게 함
         log.exception("pending requests load failed")
-        pending = []
-    boot = {**build_ui_data(), "laws": laws, "pending": pending,
+        pending, duplicates = [], []
+    boot = {**build_ui_data(), "laws": laws, "pending": pending, "closedDuplicates": duplicates,
             "lawsAsOf": max((x["collected"] for x in laws if x["collected"]), default="")}
     data = _json.dumps(boot, ensure_ascii=False).replace("</", "<\/")
     return HTMLResponse(_UI.read_text(encoding="utf-8").replace("/*__BOOT__*/null", data))

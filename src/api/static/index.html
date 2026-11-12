@@ -757,6 +757,9 @@ function prettyContext(c) {
 function syncPending() {
   const server = BOOT.pending || [];
   const serverIds = new Set(server.map((p) => p.id));
+  // (추가 2026-11-12) 서버에서 '중복 요청'으로 닫힌 건은 이 브라우저의 승인함에서도 지움
+  const dups = new Set(BOOT.closedDuplicates || []);
+  if (dups.size) { reqs = reqs.filter((r) => !dups.has(r.id)); }
   let added = 0;
   for (const p of server) {
     if (!reqs.some((r) => r.id === p.id)) { reqs.push(p); added++; }

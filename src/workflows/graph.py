@@ -271,6 +271,18 @@ def run_query(question: str, graph) -> dict:
     snap = graph.get_state(config)
     values = dict(snap.values)
     if snap.next and "approval" in snap.next:      # interrupt → 승인 대기 응답 (출력 가드 직접 적용)
+        # (추가 2026-11-12) 같은 변경의 승인 대기 건이 이미 있으면 새 요청을 닫고 기존 요청 번호로 안내 (src/revision/dedupe.py)
+        from src.revision import dedupe
+
+        dup = dedupe.find_pending_duplicate(graph, req_id, values.get("question", ""), values.get("judgment"))
+        if dup:
+            dedupe.close_as_duplicate(graph, req_id, dup)
+            j = RevisionJudgment(**values["judgment"])
+            values["answer"] = (f"같은 변경의 승인 대기 건({dup})이 이미 있어 새 승인 요청을 만들지 않았습니다. "
+                                f"{dup} 건으로 승인 또는 반려해 주세요.\n\n" + format_judgment(j, dup, pending=True))
+            values["trace"] = list(values.get("trace", [])) + [
+                step("duplicate_check", req_id, f"{dup}와 같은 변경 → 새 요청 {req_id} 닫음(중복)")]
+            req_id = dup
         masked, applied = guardrails.mask_output(values.get("answer", ""))
         values["answer"] = masked
         values["trace"] = list(values.get("trace", [])) + [
