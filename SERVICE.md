@@ -35,32 +35,32 @@
   - 모든 판단에 조문 원문(`contexts`)을 붙여 담당자가 바로 확인할 수 있습니다.
   - 확정과 제출은 사람이 승인해야만 진행됩니다.
 
-## 3. 사용 도구·데이터
+## 3. 사용 예상 도구·데이터
 
 ### 도구 (`src/tools/msds_tools.py`, 11개)
 
 에이전트가 스스로 골라 호출하는 도구입니다. MSDS DB 조회 6개는 MCP 서버(`src/tools/mcp_server.py`)를 거쳐 호출하고, 연결에 실패하면 로컬 함수를 그대로 씁니다.
 
-| 도구 | 기능 | 데이터·방식 |
-|---|---|---|
-| `get_msds(product_id, sections)` | 제품 MSDS 조회. 영업비밀 성분과 연락처 마스킹 | 제품 JSON, MCP |
-| `list_products()` | 등록 제품 목록 (없는 제품 질문 시 안내용) | 제품 JSON, MCP |
-| `find_products_by_cas(cas)` | CAS 번호로 해당 성분을 포함한 제품 검색 (영업비밀 성분 제외) | 제품 JSON, MCP |
-| `find_products_by_term(term, section)` | 특정 항목(기본 15번)에 용어가 적힌 제품 검색 | 제품 JSON, MCP |
-| `get_regulation_update(id)` / `list_regulation_updates()` | 규제·사내 변경 사건 조회 | 변경 사건 JSON |
-| `check_resubmission(change)` | 시행규칙 제159조제1항 재제출 대상 판정 | 규칙 함수 |
-| `assess_update(update_id)` | 변경 사건의 영향 제품·항목·재제출 여부 판정 (LLM 판정의 기준선, 사후 검증에 사용) | 규칙 함수 |
-| `search_law(query, as_of)` | 법령 조문 검색: BM25(kiwipiepy)+FAISS(Titan v2) RRF, 쿼리 확장, LLM 리랭킹. 기준일 시행 판과 시행 예정 판을 나눠 반환 | `src/regulation/retriever.py` |
-| `get_substance(cas)` | 단일물질 정보 (GHS 분류, 그림문자, 신호어, 국내 규제현황) | 물질 스냅샷, MCP |
-| `classify_mixture(product_id)` | 성분별 GHS 분류를 모아 제품 2번 항목과 비교한 **검토 목록**. 혼합물 최종 분류(가산식·한계농도)는 고시 원문 미수집이라 '확인 필요' | 규칙 함수, MCP |
+| 도메인 | 도구 | 기능 | 인터페이스 |
+|---|---|---|---|
+| 제품 MSDS | `get_msds(product_id, sections)` | 제품 MSDS 조회. 영업비밀 성분과 연락처 마스킹 | MCP 서버 → 제품 JSON |
+| 제품 MSDS | `list_products()` | 등록 제품 목록 (없는 제품 질문 시 안내용) | MCP 서버 → 제품 JSON |
+| 제품 MSDS | `find_products_by_cas(cas)` | CAS 번호로 해당 성분을 포함한 제품 검색 (영업비밀 성분 제외) | MCP 서버 → 제품 JSON |
+| 제품 MSDS | `find_products_by_term(term, section)` | 특정 항목(기본 15번)에 용어가 적힌 제품 검색 | MCP 서버 → 제품 JSON |
+| 변경 사건 | `get_regulation_update(id)` / `list_regulation_updates()` | 규제·사내 변경 사건 조회 | 로컬 함수 → 변경 사건 JSON |
+| 개정 판정 | `check_resubmission(change)` | 시행규칙 제159조제1항 재제출 대상 판정 | 로컬 규칙 함수 |
+| 개정 판정 | `assess_update(update_id)` | 변경 사건의 영향 제품·항목·재제출 여부 판정 (LLM 판정의 기준선, 사후 검증에 사용) | 로컬 규칙 함수 |
+| 법령 | `search_law(query, as_of)` | 법령 조문 검색: BM25(kiwipiepy)+FAISS(Titan v2) RRF, 쿼리 확장, LLM 리랭킹. 기준일 시행 판과 시행 예정 판을 나눠 반환 | RAG 검색(`src/regulation/retriever.py`) → 법령 원문·인덱스 |
+| 물질 | `get_substance(cas)` | 단일물질 정보 (GHS 분류, 그림문자, 신호어, 국내 규제현황) | MCP 서버 → 물질 스냅샷 |
+| 물질 | `classify_mixture(product_id)` | 성분별 GHS 분류를 모아 제품 2번 항목과 비교한 **검토 목록**. 혼합물 최종 분류(가산식·한계농도)는 고시 원문 미수집이라 '확인 필요' | MCP 서버 → 규칙 함수 |
 
 ### 수집·운영 기능
 
-| 기능 | 내용 | 실행 |
-|---|---|---|
-| 법령 수집·갱신 | 현행·시행 예정 판 수집, 조문 비교, 바뀌면 인덱스 재생성 | 국가법령정보센터 Open API(`target=eflaw`). 화면 '법령 가져오기' 버튼(= `/query` "법령 갱신") 또는 `./run.sh setup`. **수동 실행만** |
-| 물질 수집 | 공개 성분 단일물질 MSDS 스냅샷 | 안전보건공단 MSDS API, `scripts/collect_substances.py` |
-| 승인 후 MSDS 반영 | 승인한 개정 초안을 제품 MSDS에 반영(개정판 +1, 이전 판 보관). '확인 필요' 항목은 담당자 대체 표기 입력 필수 | 승인 시 자동. **시험 기능**이라 평가 전 원래 데모 데이터로 자동 원복(`./run.sh reset-msds`) |
+| 도메인 | 기능 | 내용 | 인터페이스 |
+|---|---|---|---|
+| 법령 | 법령 수집·갱신 | 현행·시행 예정 판 수집, 조문 비교, 바뀌면 인덱스 재생성. **수동 실행만** | 국가법령정보센터 Open API(`target=eflaw`). 화면 '법령 가져오기' 버튼(= `/query` "법령 갱신") 또는 `./run.sh setup` |
+| 물질 | 물질 수집 | 공개 성분 단일물질 MSDS 스냅샷 | 안전보건공단 MSDS API(공공데이터포털), `scripts/collect_substances.py` |
+| 개정 | 승인 후 MSDS 반영 | 승인한 개정 초안을 제품 MSDS에 반영(개정판 +1, 이전 판 보관). '확인 필요' 항목은 담당자 대체 표기 입력 필수. **시험 기능**이라 평가 전 원래 데모 데이터로 자동 원복 | `/query` "승인 REQ-xxxx", `./run.sh reset-msds` |
 
 ### 데이터 (`data/`)
 
