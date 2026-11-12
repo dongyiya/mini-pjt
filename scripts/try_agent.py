@@ -8,7 +8,8 @@ from __future__ import annotations
 import sys
 import time
 
-from src.agent import build_graph, run_query, sqlite_checkpointer
+# (기존 코드) from src.agent import build_graph, run_query, sqlite_checkpointer
+from src.workflows.graph import build_graph, run_query, sqlite_checkpointer
 
 
 def main(questions: list[str]) -> None:

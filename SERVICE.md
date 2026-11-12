@@ -37,7 +37,7 @@
 
 ## 3. 사용 도구·데이터 (2026-11-12 구현 기준)
 
-### 도구 (`src/tools.py`, 11개)
+### 도구 (`src/tools/msds_tools.py`, 11개)
 
 | 도구 | 기능 | 인터페이스 | 상태 |
 |---|---|---|---|
@@ -48,7 +48,7 @@
 | `get_regulation_update(id)` / `list_regulation_updates()` | 규제·사내 변경 사건 조회 | 로컬 JSON | 완료 |
 | `check_resubmission(change)` | 시행규칙 제159조제1항 재제출 대상 판정 | 규칙 함수 | 완료 |
 | `assess_update(update_id)` | 변경 사건의 영향 제품·항목·재제출 여부 판정 | 규칙 함수 (LLM 판정의 기준선, 판정 사후 검증에 사용) | 완료 |
-| `search_law(query, as_of)` | 법령 조문 검색: BM25(kiwipiepy)+FAISS(Titan v2) RRF, 쿼리 확장, LLM 리랭킹. 기준일 시행 판과 시행 예정 판을 나눠 반환 | `src/retriever.py` | 완료 |
+| `search_law(query, as_of)` | 법령 조문 검색: BM25(kiwipiepy)+FAISS(Titan v2) RRF, 쿼리 확장, LLM 리랭킹. 기준일 시행 판과 시행 예정 판을 나눠 반환 | `src/regulation/retriever.py` | 완료 |
 | `get_substance(cas)` | 단일물질 정보 (GHS 분류, 그림문자, 신호어, 국내 규제현황) | `data/substances/` 스냅샷, MCP 경유 | 완료 |
 | `classify_mixture(product_id)` | 성분별 GHS 분류를 모아 제품 2번 항목과 비교한 **검토 목록**. 혼합물 최종 분류(가산식·한계농도)는 고시 원문 미수집이라 '확인 필요' | 규칙 함수, MCP 경유 | 완료 (검토 목록까지) |
 | 법령 수집·갱신 | 현행·시행예정 판 수집, 조문 비교, 인덱스 재생성 | 국가법령정보센터 Open API(`target=eflaw`), `scripts/collect_data.py`, `/query` "법령 갱신"(UI 법령 가져오기 버튼) | 완료 (수동 실행만) |

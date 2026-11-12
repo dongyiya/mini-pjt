@@ -2,7 +2,8 @@ from datetime import date
 
 import pytest
 
-from src.dates import extract_as_of
+# (기존 코드) from src.dates import extract_as_of
+from src.shared.dates import extract_as_of
 
 BASE = date(2026, 11, 12)
 

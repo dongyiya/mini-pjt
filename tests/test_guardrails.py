@@ -1,6 +1,7 @@
 import pytest
 
-from src import guardrails as G
+# (기존 코드) from src import guardrails as G
+from src.guardrails import guard as G
 
 
 # ---------------------------------------------------------------- 평가셋 guardrail·negative 케이스

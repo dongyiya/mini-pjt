@@ -12,7 +12,8 @@ import re
 from functools import lru_cache
 from typing import Any
 
-from src.config import ROOT
+# (기존 코드) from src.config import ROOT
+from src.shared.config import ROOT
 
 LAW_NAME = {"산안법": "산업안전보건법", "산안법시행규칙": "산업안전보건법 시행규칙", "화관법": "화학물질관리법"}
 

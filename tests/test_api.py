@@ -5,8 +5,10 @@ from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
-from src import agent as A
-from src import api
+# (기존 코드) from src import agent as A
+from src.workflows import graph as A
+# (기존 코드) from src import api
+from src.api import app as api
 from tests.test_agent import FakeBrains, judgment_u02
 
 

@@ -6,8 +6,10 @@ from datetime import date
 import numpy as np
 import pytest
 
-from src import retriever as R
-from src.config import ROOT
+# (기존 코드) from src import retriever as R
+from src.regulation import retriever as R
+# (기존 코드) from src.config import ROOT
+from src.shared.config import ROOT
 
 CUR = """---
 law: 테스트법

@@ -5,7 +5,8 @@ import json
 import numpy as np
 
 from scripts import build_index as B
-from src import retriever as R
+# (기존 코드) from src import retriever as R
+from src.regulation import retriever as R
 
 
 def test_build_writes_vectors_and_meta(tmp_path):

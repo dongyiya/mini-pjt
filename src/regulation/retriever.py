@@ -100,7 +100,8 @@ from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 
-from src.config import INDEX_DIR, LAW_DIR, MSDS_PATH, today
+# (기존 코드) from src.config import INDEX_DIR, LAW_DIR, MSDS_PATH, today
+from src.shared.config import INDEX_DIR, LAW_DIR, MSDS_PATH, today
 
 HEADER = re.compile(r"^## \[(?P<doc_id>[^\]]+)\]\s*(?P<title>.+)$", re.M)
 FRONT = re.compile(r"^---\n(?P<meta>.*?)\n---\n", re.S)
@@ -326,7 +327,8 @@ class HybridIndex:
         import numpy as np
 
         if embed is None:
-            from src.llm import get_embeddings
+            # (기존 코드) from src.llm import get_embeddings
+            from src.shared.llm import get_embeddings
             embed = get_embeddings().embed_query
         q = np.asarray([embed(query)], dtype="float32")
         faiss.normalize_L2(q)
@@ -368,7 +370,8 @@ def llm_rerank(question: str, chunks: list[Chunk], model=None) -> list[str]:
         doc_ids: list[str] = Field(description="질문에 답하는 데 가장 직접적인 조문부터 나열한 doc_id 목록")
 
     if model is None:
-        from src.llm import get_chat_model, with_retry
+        # (기존 코드) from src.llm import get_chat_model, with_retry
+        from src.shared.llm import get_chat_model, with_retry
         model = get_chat_model(max_tokens=300)
     listing = "\n\n".join(f"[{c.doc_id}] {c.text[:600]}" for c in chunks)
     prompt = ("아래 법령 조문 후보를 질문에 직접 답하는 정도로 순위를 매기세요. "

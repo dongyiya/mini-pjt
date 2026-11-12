@@ -12,7 +12,8 @@ from __future__ import annotations
 import re
 from datetime import date
 
-from src.config import today
+# (기존 코드) from src.config import today
+from src.shared.config import today
 
 FULL = re.compile(r"(20\d{2})\s*(?:[-./]|년)\s*(\d{1,2})\s*(?:[-./]|월)\s*(\d{1,2})\s*(?:일|\.)?")
 MONTH = re.compile(r"(20\d{2})\s*(?:년|[-./])\s*(\d{1,2})\s*월?")

@@ -1,8 +1,10 @@
 import pytest
 from pydantic import ValidationError
 
-from src.schemas import (Context, ProductRevision, QueryRequest, QueryResponse, RevisionJudgment, Route,
-                         TraceStep)
+# (기존 코드) from src.schemas import (Context, ProductRevision, QueryRequest, QueryResponse, RevisionJudgment, Route,
+#                          TraceStep)
+from src.agents.schemas import ProductRevision, RevisionJudgment, Route
+from src.api.schemas import Context, QueryRequest, QueryResponse, TraceStep
 
 
 def test_query_response_matches_api_spec_shape():

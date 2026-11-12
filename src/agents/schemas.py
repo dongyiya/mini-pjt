@@ -1,4 +1,8 @@
-"""데이터 스키마 (패턴 1: LCEL 구조화 출력 + API Spec 입출력).
+"""에이전트 구조화 출력 스키마 (패턴 1: LCEL 구조화 출력).
+(2026-11-12 리팩토링: src/schemas.py → src/agents/schemas.py. API Spec 입출력은 src/api/schemas.py)
+
+(기존 docstring)
+데이터 스키마 (패턴 1: LCEL 구조화 출력 + API Spec 입출력).
 
 - API Spec 모양: QueryRequest {question} → QueryResponse {answer, contexts[{doc_id,text}], trace[{step,input,output}]}
 - LLM 구조화 출력: Route(Supervisor 라우팅), RevisionJudgment(개정 판정·초안)
@@ -15,25 +19,26 @@ DOC_ID = re.compile(r"^(law:[^:\s]+:\d+(의\d+)?(@\d{4}-\d{2}-\d{2})?|msds:P-\d{
 
 
 # ---------------------------------------------------------------- API Spec (이름·구조 변경 금지)
-class QueryRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=2000)
-
-
-class Context(BaseModel):
-    doc_id: str
-    text: str
-
-
-class TraceStep(BaseModel):
-    step: str
-    input: str
-    output: str
-
-
-class QueryResponse(BaseModel):
-    answer: str
-    contexts: list[Context]
-    trace: list[TraceStep]
+# (기존 코드) API 입출력 스키마 — 2026-11-12 리팩토링으로 src/api/schemas.py 로 옮김
+# class QueryRequest(BaseModel):
+#     question: str = Field(min_length=1, max_length=2000)
+#
+#
+# class Context(BaseModel):
+#     doc_id: str
+#     text: str
+#
+#
+# class TraceStep(BaseModel):
+#     step: str
+#     input: str
+#     output: str
+#
+#
+# class QueryResponse(BaseModel):
+#     answer: str
+#     contexts: list[Context]
+#     trace: list[TraceStep]
 
 
 # ---------------------------------------------------------------- Supervisor 라우팅

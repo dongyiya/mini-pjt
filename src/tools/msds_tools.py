@@ -14,7 +14,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+# (기존 코드) DATA_DIR = Path(__file__).resolve().parent.parent / "data"   (src/tools.py 위치 기준)
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"   # mini-pjt/data (src/tools/msds_tools.py 위치 기준)
 
 # 산업안전보건법 시행규칙 제159조제1항: 변경 시 MSDS를 다시 제출해야 하는 사항
 RESUBMISSION_ITEMS = {
@@ -227,7 +228,8 @@ def search_law(query: str, as_of: str | None = None, k: int = 3) -> dict[str, An
     import os
     from datetime import date as _date
 
-    from src import retriever
+    # (기존 코드) from src import retriever
+    from src.regulation import retriever
 
     day = _date.fromisoformat(as_of) if as_of else None
     rerank = os.getenv("MSDS_RERANK", "1") != "0"

@@ -208,3 +208,13 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 - End Point `https://apis.data.go.kr/B552468/msdschem1`, 응답 XML
 - 오퍼레이션 이름에 게이트웨이 접미사가 붙음: 목록 `getChemList001`(`searchWrd`, `searchCnd`=0 국문명, `numOfRows`, `pageNo`), 상세 `getChemDetail011`~`getChemDetail161`(MSDS 1~16번 항목, `chemId` 필수). 예전 주소 `msds.kosha.or.kr/openapi/service/msdschem/chemlist`, `getChemList`는 동작하지 않음
 - 확인 예: 톨루엔 `chemId=001032`(CAS 108-88-3). 15번 상세에서 화학물질관리법 규제가 **"사고대비물질"만** 나오고 유독물질 표기는 없음 → U-01 판단과 일치
+
+## 2026-11-12 소스 폴더 리팩토링 (도메인별)
+
+| 항목 | 내용 |
+|---|---|
+| 요청 | `src/`를 도메인(기능)별 폴더로 재구성, 공통 LLM·설정만 `src/shared/`, 규칙은 CLAUDE.md "소스 폴더 구조" 절 |
+| 결과 | `src/{api,agents,workflows,memory,tools,regulation,revision,guardrails,shared}`. `src/agent.py`는 `workflows/graph.py`(그래프·run_query)로 옮기고 프롬프트·Brains·판정 후처리는 `agents/`, 근거 변환은 `workflows/evidence.py`, 체크포인터는 `memory/`, step은 `shared/trace.py`로 나눔. `src/schemas.py`는 `api/schemas.py`(API Spec)와 `agents/schemas.py`(구조화 출력)로 나눔 |
+| 실행 경로 변경 | 서버 `uvicorn src.api.app:app` (run.sh 반영), MCP 서버 `python -m src.tools.mcp_server` |
+| 확인 | 전체 컴파일, 27개 모듈 import, `GET /`·`/health`·`POST /query`(가드레일 차단 질문, LLM 없이) 응답 모양, MCP 서버 기동·도구 6개 연결. **단위 테스트(pytest)는 사용자 지시로 실행하지 않음** — 테스트 파일의 import 경로만 고침 |
+| 그대로 둔 것 | 동작·프롬프트·API Spec 변경 없음. 1·2차 평가 보고서의 옛 파일 경로(당시 기록), 위 표의 옛 경로 |

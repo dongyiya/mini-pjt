@@ -1,6 +1,7 @@
 from datetime import date
 
-from src import config
+# (기존 코드) from src import config
+from src.shared import config
 
 
 def test_paths_point_inside_project():

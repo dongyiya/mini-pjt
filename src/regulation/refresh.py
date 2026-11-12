@@ -16,8 +16,10 @@ import threading
 from pathlib import Path
 from typing import Callable
 
-from src import retriever
-from src.config import LAW_DIR, get_settings, today
+# (기존 코드) from src import retriever
+from src.regulation import retriever
+# (기존 코드) from src.config import LAW_DIR, get_settings, today
+from src.shared.config import LAW_DIR, get_settings, today
 
 COMMAND = re.compile(r"^\s*법령\s*(갱신|가져오기|업데이트|수집|새로\s*고침)\s*(해\s*줘|하기|실행)?\s*[.!]?\s*$")
 _lock = threading.Lock()

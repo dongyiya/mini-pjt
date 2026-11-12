@@ -19,8 +19,10 @@ import json
 import re
 from typing import Any
 
-from src import tools
-from src.config import SUBSTANCE_DIR
+# (기존 코드) from src import tools
+from src.tools import msds_tools as tools
+# (기존 코드) from src.config import SUBSTANCE_DIR
+from src.shared.config import SUBSTANCE_DIR
 
 LAW_KEY = {"화학물질관리법": "화학물질관리법에 의한 규제", "산업안전보건법": "산업안전보건법에 의한 규제"}
 
@@ -120,7 +122,8 @@ def pending_requests(graph, checkpointer) -> list[dict[str, Any]]:
     화면을 열 때 승인함에 불러와, 다른 브라우저·서버 재시작 후에도 대기 건을 볼 수 있게 합니다.
     대기 답변은 output_guard 를 거치기 전 상태라 여기서 마스킹합니다.
     """
-    from src import guardrails
+    # (기존 코드) from src import guardrails
+    from src.guardrails import guard as guardrails
 
     thread_ids: list[str] = []
     for t in checkpointer.list(None):

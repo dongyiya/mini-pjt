@@ -22,10 +22,10 @@ BuildPattern 12개 중 11개를 적용했습니다(10번 장기 메모리 제외
 
 ```
 브라우저 UI (GET /)  ─┐
-PowerShell·curl 등   ─┴→ POST /query (FastAPI, src/api.py)
+PowerShell·curl 등   ─┴→ POST /query (FastAPI, src/api/app.py)
                           │  '승인/반려 REQ-x' → 체크포인트에서 재개 · '법령 갱신' → 법령 수동 갱신
                           ▼
-   LangGraph (src/agent.py)
+   LangGraph (src/workflows/graph.py)
    input_guard ─(차단)──────────────────────────────────────────┐
        └→ supervisor (기준일 추출 + Route 구조화 출력)            │
              ├→ regulation_agent ── search_law ─→ retriever ─→ data/laws, index/
@@ -102,12 +102,14 @@ Docker: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.
   - 화면의 승인함 목록은 브라우저에만 저장됩니다(승인 대기 상태 자체는 서버 체크포인트에 있음).
 
 ## 핵심 코드 위치
-- [src/agent.py:363](src/agent.py#L363) — 메인 에이전트 그래프 `build_graph` (input_guard → supervisor → 서브 에이전트 → approval → output_guard)
-- [src/agent.py:478](src/agent.py#L478) — `run_query`: `/query` 처리, 승인/반려 재개, 법령 갱신 명령
-- [src/agent.py:302](src/agent.py#L302) — `sanitize_judgment`: LLM 판정 사후 검증
-- [src/tools.py](src/tools.py) — 도메인 도구 11개 (`assess_update` 166행, `check_resubmission` 138행, `search_law` 206행)
-- [src/retriever.py:386](src/retriever.py#L386) — RAG 파이프라인 `search` (하이브리드 검색·리랭크·시행일 판 선택)
-- [src/guardrails.py](src/guardrails.py) — 입력 차단 `check_input`, 출력 마스킹 `mask_output`
-- [src/mcp_server.py](src/mcp_server.py), [src/mcp_client.py](src/mcp_client.py) — MCP 서버·클라이언트 브리지
-- [src/api.py](src/api.py), [src/static/index.html](src/static/index.html) — API 서버와 화면
+폴더별 역할과 파일 배치 규칙은 [CLAUDE.md](CLAUDE.md) "소스 폴더 구조" 절에 있습니다.
+
+- [src/workflows/graph.py:92](src/workflows/graph.py#L92) — 메인 에이전트 그래프 `build_graph` (input_guard → supervisor → 서브 에이전트 → approval → output_guard)
+- [src/workflows/graph.py:229](src/workflows/graph.py#L229) — `run_query`: `/query` 처리, 승인/반려 재개, 법령 갱신 명령
+- [src/agents/](src/agents/) — 프롬프트(`prompts.py`), LLM 라우터·ReAct·판정(`brains.py`), 구조화 출력 스키마(`schemas.py`), 판정 사후 검증 [`sanitize_judgment`](src/agents/judgment.py#L18)
+- [src/tools/msds_tools.py](src/tools/msds_tools.py) — 도메인 도구 11개 (`assess_update` 182행, `check_resubmission` 154행, `search_law` 222행)
+- [src/regulation/retriever.py:389](src/regulation/retriever.py#L389) — RAG 파이프라인 `search` (하이브리드 검색·리랭크·시행일 판 선택)
+- [src/guardrails/guard.py](src/guardrails/guard.py) — 입력 차단 `check_input`, 출력 마스킹 `mask_output`
+- [src/tools/mcp_server.py](src/tools/mcp_server.py), [src/tools/mcp_client.py](src/tools/mcp_client.py) — MCP 서버·클라이언트 브리지
+- [src/api/app.py](src/api/app.py), [src/api/static/index.html](src/api/static/index.html) — API 서버와 화면
 - [evaluation/run_eval.py](evaluation/run_eval.py) — LLM-as-Judge + RAGAS 평가

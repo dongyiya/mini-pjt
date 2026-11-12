@@ -4,7 +4,7 @@ API Spec 응답 모양({answer, contexts[{doc_id,text}], trace[{step,input,outpu
 1일차에 미리 고정하고, 데이터·도구·검색이 맞물리는지 확인하기 위한 뼈대입니다.
 2일차에 src/agent.py의 LangGraph(Supervisor + ReAct + 구조화 출력 + HITL)로 바꿉니다.
 
-    python -m src.pipeline "U-01 반영하려면 어떤 제품 MSDS를 고쳐야 해?"
+    python -m src.workflows.pipeline_v1 "U-01 반영하려면 어떤 제품 MSDS를 고쳐야 해?"
 """
 
 from __future__ import annotations
@@ -14,8 +14,10 @@ import re
 import sys
 from typing import Any
 
-from src import tools
-from src.retriever import get_chunk, retrieve
+# (기존 코드) from src import tools
+from src.tools import msds_tools as tools
+# (기존 코드) from src.retriever import get_chunk, retrieve
+from src.regulation.retriever import get_chunk, retrieve
 
 INJECTION = re.compile(r"(이전|위의?)\s*(지시|명령|규칙).*(무시|잊)|ignore (all|previous)|system prompt", re.I)
 APPROVAL_BYPASS = re.compile(r"승인\s*없이|바로\s*(확정|제출)|자동\s*제출")

@@ -1,6 +1,7 @@
 import pytest
 
-from src import llm
+# (기존 코드) from src import llm
+from src.shared import llm
 
 
 def test_chat_model_uses_settings(monkeypatch):

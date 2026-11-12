@@ -13,7 +13,8 @@ import sys
 import threading
 from typing import Any
 
-from src.config import ROOT
+# (기존 코드) from src.config import ROOT
+from src.shared.config import ROOT
 
 
 def _text(result: Any) -> str:
@@ -54,7 +55,8 @@ class McpBridge:
         from langchain_mcp_adapters.tools import load_mcp_tools
 
         client = MultiServerMCPClient({"msds": {
-            "command": sys.executable, "args": ["-X", "utf8", "-m", "src.mcp_server"],
+            # (기존 코드) "command": sys.executable, "args": ["-X", "utf8", "-m", "src.mcp_server"],
+            "command": sys.executable, "args": ["-X", "utf8", "-m", "src.tools.mcp_server"],
             "transport": "stdio", "cwd": str(ROOT)}})
         try:
             async with client.session("msds") as session:

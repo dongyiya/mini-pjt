@@ -18,8 +18,10 @@ import threading
 from datetime import date
 from typing import Any
 
-from src import tools
-from src.config import MSDS_PATH, today
+# (기존 코드) from src import tools
+from src.tools import msds_tools as tools
+# (기존 코드) from src.config import MSDS_PATH, today
+from src.shared.config import MSDS_PATH, today
 
 HISTORY_DIR = MSDS_PATH.parent / "history"
 LOG_PATH = MSDS_PATH.parent / "revision_log.json"
@@ -49,7 +51,8 @@ _lock = threading.Lock()
 
 def request_ops(question: str, judgment: dict | None) -> dict[str, list[dict]]:
     """승인 요청 하나에 해당하는 제품별 변경 작업."""
-    from src.revision_preview import update_ops
+    # (기존 코드) from src.revision_preview import update_ops
+    from src.revision.preview import update_ops
 
     uids = list(dict.fromkeys(u.upper() for u in re.findall(r"U-\d+", question, re.I)))
     pids = [p["product_id"] for p in (judgment or {}).get("products", [])]
@@ -175,7 +178,8 @@ def apply(req_id: str, question: str, judgment: dict | None, inputs: dict[str, s
 
 
 def _clear_guardrail_caches() -> None:
-    from src import guardrails
+    # (기존 코드) from src import guardrails
+    from src.guardrails import guard as guardrails
 
     for fn in (guardrails._products, guardrails._in_scope_re, guardrails._secret_terms, guardrails._contact_names):
         fn.cache_clear()

@@ -1,6 +1,6 @@
 """FastAPI 서버 — API Spec.md 준수.
 
-    ../.venv/Scripts/python -m uvicorn src.api:app --port 8000
+    ../.venv/Scripts/python -m uvicorn src.api.app:app --port 8000   (기존: src.api:app)
 
 POST /query  Content-Type: application/json  Body: {"question": "..."}
 Response    {"answer": str, "contexts": [{"doc_id", "text"}], "trace": [{"step", "input", "output"}]}
@@ -18,8 +18,10 @@ from functools import lru_cache
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from src.agent import build_graph, run_query, sqlite_checkpointer
-from src.schemas import QueryRequest, QueryResponse
+# (기존 코드) from src.agent import build_graph, run_query, sqlite_checkpointer
+from src.workflows.graph import build_graph, run_query, sqlite_checkpointer
+# (기존 코드) from src.schemas import QueryRequest, QueryResponse
+from src.api.schemas import QueryRequest, QueryResponse
 
 log = logging.getLogger("msds-agent")
 
@@ -64,9 +66,12 @@ from pathlib import Path as _Path
 
 from fastapi.responses import HTMLResponse
 
-from src import retriever as _retriever
-from src import tools as _tools
-from src.config import LAW_DIR as _LAW_DIR
+# (기존 코드) from src import retriever as _retriever
+from src.regulation import retriever as _retriever
+# (기존 코드) from src import tools as _tools
+from src.tools import msds_tools as _tools
+# (기존 코드) from src.config import LAW_DIR as _LAW_DIR
+from src.shared.config import LAW_DIR as _LAW_DIR
 
 _UI = _Path(__file__).resolve().parent / "static" / "index.html"
 
@@ -81,7 +86,8 @@ def _law_versions() -> list[dict]:
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def ui() -> HTMLResponse:
-    from src.revision_preview import build_ui_data
+    # (기존 코드) from src.revision_preview import build_ui_data
+    from src.revision.preview import build_ui_data
 
     laws = _law_versions()
     # (기존 코드) 변경 사건·제품 목록만 전달 — 대시보드·MSDS 조회·변경 전후 비교 데이터를 추가하며 교체
@@ -90,7 +96,8 @@ def ui() -> HTMLResponse:
     # (기존 코드) 승인 대기 건 없이 전달 — 서버 체크포인트의 승인 대기 건을 승인함에 불러오도록 교체
     # boot = {**build_ui_data(), "laws": laws,
     #         "lawsAsOf": max((x["collected"] for x in laws if x["collected"]), default="")}
-    from src.revision_preview import pending_requests
+    # (기존 코드) from src.revision_preview import pending_requests
+    from src.revision.preview import pending_requests
 
     try:
         graph = get_graph()

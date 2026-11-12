@@ -2,7 +2,8 @@
 
 import json
 
-from src import tools as T
+# (기존 코드) from src import tools as T
+from src.tools import msds_tools as T
 
 
 def test_get_msds_masks_secret_and_contact():
@@ -63,7 +64,8 @@ def test_assess_update_each_event():
 
 def test_search_law_returns_applicable_and_upcoming(monkeypatch):
     monkeypatch.setenv("MSDS_RERANK", "0")
-    from src import retriever
+    # (기존 코드) from src import retriever
+    from src.regulation import retriever
 
     retriever.get_index.cache_clear()
     monkeypatch.setattr(retriever.HybridIndex, "vector_ranks", lambda self, q, embed=None, top=20: [])

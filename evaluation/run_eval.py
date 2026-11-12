@@ -132,7 +132,8 @@ def _ragas_imports():
 
 
 def run_ragas(rows: list[dict]) -> dict:
-    from src.llm import get_chat_model, get_embeddings
+    # (기존 코드) from src.llm import get_chat_model, get_embeddings
+    from src.shared.llm import get_chat_model, get_embeddings
 
     targets = [r for r in rows if r["contexts"]]
     if not targets:
@@ -176,11 +177,14 @@ def abort_on_daily_limit(case_id: str, stage: str) -> None:
 
 
 def run(round_no: int, only: set[str] | None, skip_ragas: bool) -> dict:
-    from src.agent import build_graph, run_query, sqlite_checkpointer
-    from src.llm import get_chat_model
+    # (기존 코드) from src.agent import build_graph, run_query, sqlite_checkpointer
+    from src.workflows.graph import build_graph, run_query, sqlite_checkpointer
+    # (기존 코드) from src.llm import get_chat_model
+    from src.shared.llm import get_chat_model
 
     # 사용자 결정(2026-11-12): 승인 → MSDS 반영은 시험 기능이므로 평가 전에 원래 데모 데이터로 되돌린 뒤 평가
-    from src.msds_revision import reset_to_baseline
+    # (기존 코드) from src.msds_revision import reset_to_baseline
+    from src.revision.msds_apply import reset_to_baseline
 
     if reset_to_baseline():
         print("[안내] 승인 반영으로 바뀐 제품 MSDS를 원래 데모 데이터로 되돌린 뒤 평가합니다.", flush=True)
@@ -254,16 +258,31 @@ def summarize(rows: list[dict], ragas: dict) -> dict:
     }
 
 
+# (기존 코드) 2026-11-12 리팩토링 전 파일 경로
+# PATTERNS = [
+#     ("1", "LCEL 구조화 출력 (필수)", "`src/schemas.py` Route·RevisionJudgment, `src/agent.py` 라우터·판정 체인(`prompt | model.with_structured_output`)"),
+#     ("2", "ReAct", "`src/agent.py` 서브 에이전트 3개를 `create_agent`(bind_tools)로 생성, 도구 자율 선택"),
+#     ("3", "RAG (필수)", "`src/retriever.py` BM25(kiwipiepy)+FAISS(Titan v2) RRF, 쿼리 확장(용어·성분명↔CAS), LLM 리랭킹, 시행일 기준 판 선택"),
+#     ("4", "도구 다중", "`src/tools.py` 11개 (MSDS DB·변경 사건·재제출 규칙·법령 검색·물질 정보·혼합물 검토)"),
+#     ("5", "MCP", "`src/mcp_server.py`(FastMCP stdio)로 MSDS DB 도구 6개 노출, `src/mcp_client.py` 브리지로 에이전트가 호출"),
+#     ("6", "가드레일", "`src/guardrails.py` 입력(인젝션·승인 우회·영업비밀·범위 밖) 차단, 출력(연락처·영업비밀 실명) 마스킹"),
+#     ("7", "HITL", "`src/agent.py` approval 노드 `interrupt()` + SqliteSaver, 같은 `/query`로 '승인/반려 REQ-xxxx' 재개"),
+#     ("8", "미들웨어", "`src/llm.py` `with_retry`, `scripts/collect_*.py` tenacity 재시도, 도구 결과 마스킹"),
+#     ("9", "Supervisor", "`src/agent.py` supervisor 노드가 regulation/impact/revision 서브 에이전트로 위임"),
+#     ("11", "Trace (필수)", "응답 `trace`(노드·도구 단계) + LangSmith 자동 기록(`LANGSMITH_TRACING`)"),
+#     ("12", "평가 (필수)", "`evaluation/run_eval.py` LLM-as-Judge 통과 판정 + RAGAS 4지표"),
+# ]
+
 PATTERNS = [
-    ("1", "LCEL 구조화 출력 (필수)", "`src/schemas.py` Route·RevisionJudgment, `src/agent.py` 라우터·판정 체인(`prompt | model.with_structured_output`)"),
-    ("2", "ReAct", "`src/agent.py` 서브 에이전트 3개를 `create_agent`(bind_tools)로 생성, 도구 자율 선택"),
-    ("3", "RAG (필수)", "`src/retriever.py` BM25(kiwipiepy)+FAISS(Titan v2) RRF, 쿼리 확장(용어·성분명↔CAS), LLM 리랭킹, 시행일 기준 판 선택"),
-    ("4", "도구 다중", "`src/tools.py` 11개 (MSDS DB·변경 사건·재제출 규칙·법령 검색·물질 정보·혼합물 검토)"),
-    ("5", "MCP", "`src/mcp_server.py`(FastMCP stdio)로 MSDS DB 도구 6개 노출, `src/mcp_client.py` 브리지로 에이전트가 호출"),
-    ("6", "가드레일", "`src/guardrails.py` 입력(인젝션·승인 우회·영업비밀·범위 밖) 차단, 출력(연락처·영업비밀 실명) 마스킹"),
-    ("7", "HITL", "`src/agent.py` approval 노드 `interrupt()` + SqliteSaver, 같은 `/query`로 '승인/반려 REQ-xxxx' 재개"),
-    ("8", "미들웨어", "`src/llm.py` `with_retry`, `scripts/collect_*.py` tenacity 재시도, 도구 결과 마스킹"),
-    ("9", "Supervisor", "`src/agent.py` supervisor 노드가 regulation/impact/revision 서브 에이전트로 위임"),
+    ("1", "LCEL 구조화 출력 (필수)", "`src/agents/schemas.py` Route·RevisionJudgment, `src/agents/brains.py` 라우터·판정 체인(`prompt | model.with_structured_output`)"),
+    ("2", "ReAct", "`src/agents/brains.py` 서브 에이전트 3개를 `create_agent`(bind_tools)로 생성, 도구 자율 선택"),
+    ("3", "RAG (필수)", "`src/regulation/retriever.py` BM25(kiwipiepy)+FAISS(Titan v2) RRF, 쿼리 확장(용어·성분명↔CAS), LLM 리랭킹, 시행일 기준 판 선택"),
+    ("4", "도구 다중", "`src/tools/msds_tools.py` 11개 (MSDS DB·변경 사건·재제출 규칙·법령 검색·물질 정보·혼합물 검토)"),
+    ("5", "MCP", "`src/tools/mcp_server.py`(FastMCP stdio)로 MSDS DB 도구 6개 노출, `src/tools/mcp_client.py` 브리지로 에이전트가 호출"),
+    ("6", "가드레일", "`src/guardrails/guard.py` 입력(인젝션·승인 우회·영업비밀·범위 밖) 차단, 출력(연락처·영업비밀 실명) 마스킹"),
+    ("7", "HITL", "`src/workflows/graph.py` approval 노드 `interrupt()` + `src/memory/checkpointer.py` SqliteSaver, 같은 `/query`로 '승인/반려 REQ-xxxx' 재개"),
+    ("8", "미들웨어", "`src/shared/llm.py` `with_retry`, `scripts/collect_*.py` tenacity 재시도, 도구 결과 마스킹"),
+    ("9", "Supervisor", "`src/workflows/graph.py` supervisor 노드가 regulation/impact/revision 서브 에이전트로 위임"),
     ("11", "Trace (필수)", "응답 `trace`(노드·도구 단계) + LangSmith 자동 기록(`LANGSMITH_TRACING`)"),
     ("12", "평가 (필수)", "`evaluation/run_eval.py` LLM-as-Judge 통과 판정 + RAGAS 4지표"),
 ]

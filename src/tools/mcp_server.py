@@ -1,6 +1,6 @@
 """MCP 서버 (패턴 5) — 사내 MSDS DB(제품·성분·물질 정보) 조회를 MCP 도구로 노출합니다.
 
-    ../.venv/Scripts/python -m src.mcp_server        # stdio 전송
+    ../.venv/Scripts/python -m src.tools.mcp_server  # stdio 전송 (기존: -m src.mcp_server)
 
 - 노출 도구: get_msds, list_products, find_products_by_cas, find_products_by_term, get_substance, classify_mixture
 - 영업비밀·연락처 마스킹은 src/tools.py 단계에서 이미 적용되므로 MCP 경계 밖으로 원본이 나가지 않습니다.
@@ -13,7 +13,8 @@ import json
 
 from mcp.server.fastmcp import FastMCP
 
-from src import tools
+# (기존 코드) from src import tools
+from src.tools import msds_tools as tools
 
 mcp = FastMCP("msds-db", log_level="WARNING")
 

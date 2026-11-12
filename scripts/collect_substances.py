@@ -19,7 +19,8 @@ from pathlib import Path
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from src.config import MSDS_PATH, SUBSTANCE_DIR, get_settings, today
+# (기존 코드) from src.config import MSDS_PATH, SUBSTANCE_DIR, get_settings, today
+from src.shared.config import MSDS_PATH, SUBSTANCE_DIR, get_settings, today
 
 BASE = "https://apis.data.go.kr/B552468/msdschem1/"
 

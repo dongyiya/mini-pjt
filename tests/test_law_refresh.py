@@ -4,8 +4,10 @@ import threading
 
 import pytest
 
-from src import law_refresh as LR
-from src import retriever
+# (기존 코드) from src import law_refresh as LR
+from src.regulation import refresh as LR
+# (기존 코드) from src import retriever
+from src.regulation import retriever
 
 HEAD = "---\nlaw: 테스트법\nshort: 테법\nstatus: {status}\neffective: {eff}\n---\n\n"
 
@@ -103,7 +105,8 @@ def test_missing_api_key(monkeypatch):
 
 
 def test_run_query_routes_refresh_command(monkeypatch):
-    from src import agent as A
+    # (기존 코드) from src import agent as A
+    from src.workflows import graph as A
     from tests.test_agent import FakeBrains, graph
 
     monkeypatch.setattr(LR, "refresh", lambda: {"answer": "갱신됨", "contexts": [], "trace": []})

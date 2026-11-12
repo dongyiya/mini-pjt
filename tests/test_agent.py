@@ -7,9 +7,12 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
-from src import agent as A
-from src import tools
-from src.schemas import ProductRevision, RevisionJudgment, Route
+# (기존 코드) from src import agent as A
+from src.workflows import graph as A
+# (기존 코드) from src import tools
+from src.tools import msds_tools as tools
+# (기존 코드) from src.schemas import ProductRevision, RevisionJudgment, Route
+from src.agents.schemas import ProductRevision, RevisionJudgment, Route
 
 
 def tool_turn(name, args, result, call_id):

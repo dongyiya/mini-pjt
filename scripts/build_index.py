@@ -17,8 +17,10 @@ from pathlib import Path
 
 import numpy as np
 
-from src.config import INDEX_DIR
-from src.retriever import Chunk, load_chunks
+# (기존 코드) from src.config import INDEX_DIR
+from src.shared.config import INDEX_DIR
+# (기존 코드) from src.retriever import Chunk, load_chunks
+from src.regulation.retriever import Chunk, load_chunks
 
 
 def chunk_meta(c: Chunk) -> dict:
@@ -35,7 +37,8 @@ def build(out_dir: Path = INDEX_DIR, embed_documents=None) -> int:
         print("[오류] data/laws 에 조문이 없습니다. 먼저 python -m scripts.collect_data 를 실행하세요.")
         return 1
     if embed_documents is None:
-        from src.llm import get_embeddings
+        # (기존 코드) from src.llm import get_embeddings
+        from src.shared.llm import get_embeddings
         embed_documents = get_embeddings().embed_documents
     try:
         vectors = np.asarray(embed_documents([c.text for c in chunks]), dtype="float32")

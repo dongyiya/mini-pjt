@@ -24,7 +24,8 @@ from pathlib import Path
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from src.config import LAW_DIR, get_settings, today
+# (기존 코드) from src.config import LAW_DIR, get_settings, today
+from src.shared.config import LAW_DIR, get_settings, today
 
 BASE = "https://www.law.go.kr/DRF/"
 

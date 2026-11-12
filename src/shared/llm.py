@@ -11,7 +11,8 @@ from functools import lru_cache
 
 from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
 
-from src.config import get_settings
+# (기존 코드) from src.config import get_settings
+from src.shared.config import get_settings
 
 
 @lru_cache(maxsize=4)

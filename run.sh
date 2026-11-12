@@ -25,14 +25,16 @@ case "${1:-serve}" in
   index) $PY -m scripts.build_index ;;
   serve)
     [ -f index/vectors.npy ] || $PY -m scripts.build_index || echo "[경고] 인덱스 생성 실패 → BM25만으로 검색합니다."
-    exec $PY -m uvicorn src.api:app --host 0.0.0.0 --port "${PORT:-8000}" ;;
+    # (기존 코드) exec $PY -m uvicorn src.api:app --host 0.0.0.0 --port "${PORT:-8000}" ;;
+    exec $PY -m uvicorn src.api.app:app --host 0.0.0.0 --port "${PORT:-8000}" ;;
   test)  $PY -m pytest ;;
   # (기존 코드) git 커밋본으로 되돌림 — 바뀐 MSDS가 커밋되거나 git이 없는 환경(Docker)에서도 되도록 기준본 파일로 교체
   # reset-msds)   # 승인으로 바뀐 제품 MSDS를 커밋된 원래 데모 데이터로 되돌림 (평가 전에 실행 권장)
   #   git checkout -- data/msds/products.json && rm -rf data/msds/history data/msds/revision_log.json
   #   echo "제품 MSDS를 원래 데모 데이터로 되돌렸습니다. 서버를 켜 둔 상태라면 화면을 새로고침하세요." ;;
   reset-msds)   # 승인으로 바뀐 제품 MSDS를 원래 데모 데이터(data/msds/products.baseline.json)로 되돌림. 평가는 자동으로 실행함
-    $PY -c "from src.msds_revision import reset_to_baseline as r; print('되돌렸습니다. 서버가 켜져 있으면 화면을 새로고침하세요.' if r() else '이미 원래 데이터입니다.')" ;;
+    # (기존 코드) $PY -c "from src.msds_revision import reset_to_baseline as r; print('되돌렸습니다. 서버가 켜져 있으면 화면을 새로고침하세요.' if r() else '이미 원래 데이터입니다.')" ;;
+    $PY -c "from src.revision.msds_apply import reset_to_baseline as r; print('되돌렸습니다. 서버가 켜져 있으면 화면을 새로고침하세요.' if r() else '이미 원래 데이터입니다.')" ;;
   eval1) $PY -m evaluation.run_eval --round 1 ;;
   eval2) $PY -m evaluation.run_eval --round 2 ;;
   *) echo "사용법: $0 [setup|index|serve|test|eval1|eval2|reset-msds]"; exit 1 ;;

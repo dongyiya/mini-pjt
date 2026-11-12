@@ -5,7 +5,9 @@ from datetime import date
 
 import pytest
 
-from src import mcp_client, mcp_server, tools
+# (기존 코드) from src import mcp_client, mcp_server, tools
+from src.tools import mcp_client, mcp_server
+from src.tools import msds_tools as tools
 
 
 @pytest.fixture(scope="module")
@@ -34,7 +36,8 @@ def test_mcp_keeps_masking(bridge):
 
 
 def test_make_tools_uses_mcp_when_enabled(monkeypatch, bridge):
-    from src import agent as A
+    # (기존 코드) from src import agent as A
+    from src.workflows import graph as A
 
     monkeypatch.setenv("MSDS_USE_MCP", "1")
     monkeypatch.setattr(mcp_client, "_bridge", bridge)
@@ -44,7 +47,8 @@ def test_make_tools_uses_mcp_when_enabled(monkeypatch, bridge):
 
 
 def test_make_tools_local_when_disabled(monkeypatch):
-    from src import agent as A
+    # (기존 코드) from src import agent as A
+    from src.workflows import graph as A
 
     monkeypatch.setenv("MSDS_USE_MCP", "0")
     names = {t.name: t for t in A.make_tools(date(2026, 11, 12))["impact"]}

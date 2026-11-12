@@ -16,7 +16,8 @@ import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 
-from src.config import MSDS_PATH
+# (기존 코드) from src.config import MSDS_PATH
+from src.shared.config import MSDS_PATH
 
 INJECTION = re.compile(
     r"(이전|위의?|앞의?|기존)\s*(지시|명령|규칙|프롬프트).*(무시|잊)|"

@@ -13,7 +13,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parent.parent          # mini-pjt
+# (기존 코드) ROOT = Path(__file__).resolve().parent.parent          # mini-pjt  (src/config.py 위치 기준)
+ROOT = Path(__file__).resolve().parents[2]             # mini-pjt  (src/shared/config.py 위치 기준)
 ENV_PATH = ROOT.parent / ".env"                         # sds-ax-practice/.env
 load_dotenv(ENV_PATH, override=False)
 
