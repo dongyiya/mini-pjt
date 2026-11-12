@@ -196,14 +196,133 @@ def assess_update(update_id: str) -> dict[str, Any]:
             "doc_ids": update.get("related_docs", [])}
 
 
+# ---------------------------------------------------------------- 2일차 추가 도구
+def list_products() -> list[dict[str, str]]:
+    """등록된 제품 목록(id, 제품명, MSDS 개정판)을 돌려줍니다. 없는 제품을 물으면 이 목록으로 안내합니다."""
+    return [{"id": p["id"], "name": p["name"], "revision": f"{p['revision']['no']}판 ({p['revision']['date']})"}
+            for p in _products()]
+
+
+def search_law(query: str, as_of: str | None = None, k: int = 3) -> dict[str, Any]:
+    """법령 조문을 하이브리드 검색(BM25+FAISS, 쿼리 확장, 리랭킹)합니다.
+
+    as_of(YYYY-MM-DD) 기준으로 시행 중인 판을 'applicable'에, 그 뒤에 시행될 판을 'upcoming'에 담습니다.
+    판정 근거는 applicable 조문만 씁니다.
+    """
+    import os
+    from datetime import date as _date
+
+    from src import retriever
+
+    day = _date.fromisoformat(as_of) if as_of else None
+    rerank = os.getenv("MSDS_RERANK", "1") != "0"
+    r = retriever.search(query, k=k, as_of=day, rerank=rerank)
+
+    def view(c):
+        return {"doc_id": c.doc_id, "title": c.title, "text": c.text,
+                "effective_from": c.effective_from.isoformat() if c.effective_from else None}
+
+    return {"as_of": r.as_of.isoformat(), "method": r.method,
+            "applicable": [view(c) for c in r.applicable],
+            "upcoming": [view(c) for c in r.upcoming],
+            "notes": r.notes}
+
+
+DOMESTIC_REG_KEYS = ("산업안전보건법에 의한 규제", "화학물질관리법에 의한 규제",
+                     "화학물질의 등록 및 평가 등에 관한 법률 규제")
+
+
+def _substance(cas: str) -> dict[str, Any] | None:
+    path = DATA_DIR / "substances" / f"{cas.strip()}.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def get_substance(cas: str) -> dict[str, Any]:
+    """단일물질 정보(안전보건공단 공개 MSDS 스냅샷)를 CAS 번호로 조회합니다.
+
+    GHS 유해성·위험성 분류, 그림문자, 신호어, 국내 법적 규제현황(산안법·화관법·화평법)을 돌려줍니다.
+    """
+    s = _substance(cas)
+    if s is None:
+        return {"error": f"CAS {cas} 물질 정보가 없습니다. 등록 제품의 공개 성분만 조회할 수 있습니다."}
+    return {
+        "cas": s["cas"], "name": s["name"], "doc_id": s["doc_id"],
+        "ghs": s["section2"]["ghs"], "pictograms": s["section2"]["pictograms"],
+        "signal_word": s["section2"]["signal_word"],
+        "regulations": {k: v for k, v in s["section15"].items() if k in DOMESTIC_REG_KEYS},
+        "source": f"{s['source']} (공단 갱신일 {s.get('kosha_last_date', '')}, 수집일 {s['collected']})",
+    }
+
+
+def _hazard_class(text: str) -> str:
+    """'인화성 액체 : 구분2' / '인화성 액체 구분2' → '인화성액체' (비교용 유해성 항목 이름)."""
+    head = re.split(r"\s*:\s*|\s*구분", text, maxsplit=1)[0]
+    head = re.sub(r"/\s*피부\s*", "/", head)   # '피부 부식성/피부 자극성' = '피부 부식성/자극성'
+    return re.sub(r"[\s/·]", "", head)
+
+
+def classify_mixture(product_id: str) -> dict[str, Any]:
+    """제품 성분별 GHS 분류를 모아 제품 MSDS 2번과 비교한 '검토 목록'을 만듭니다.
+
+    혼합물 최종 분류(가산식·한계농도)는 고시 기준 원문을 아직 수집하지 않아 계산하지 않습니다 → '확인 필요'.
+    영업비밀 성분은 공단 자료를 조회하지 않으며 실제 명칭을 드러내지 않습니다.
+    """
+    product = _find_product(product_id)
+    if product is None:
+        return {"error": f"제품 {product_id}을(를) 찾을 수 없습니다."}
+    current = {_hazard_class(h): h for h in product.get("section2", {}).get("ghs", [])}
+    by_class: dict[str, list[dict[str, str]]] = {}
+    skipped = []
+    for comp in product["section3"]:
+        if comp.get("trade_secret"):
+            skipped.append(f"{comp['name']}({comp['content']}): 영업비밀 성분이라 공단 자료를 조회하지 않음")
+            continue
+        s = _substance(comp["cas"])
+        if s is None:
+            skipped.append(f"{comp['name']}({comp['cas']}): 물질 스냅샷 없음")
+            continue
+        for g in s["section2"]["ghs"]:
+            if g == "자료없음":
+                continue
+            by_class.setdefault(_hazard_class(g), []).append(
+                {"component": comp["name"], "cas": comp["cas"], "content": comp["content"], "classification": g})
+    review = [{"hazard_class": by_class[k][0]["classification"].split(" :")[0], "components": v,
+               "in_product_section2": k in current}
+              for k, v in by_class.items()]
+    return {
+        "product_id": product["id"], "product_name": product["name"],
+        "product_section2": list(current.values()),
+        "component_hazards": review,
+        "not_in_section2": [r["hazard_class"] for r in review if not r["in_product_section2"]],
+        "skipped": skipped,
+        "note": "성분별 분류를 모은 검토 목록입니다. 혼합물 최종 분류(가산식·한계농도 적용)는 "
+                "「화학물질의 분류·표시 및 물질안전보건자료에 관한 기준」 원문 확인 필요.",
+        "doc_ids": [f"msds:{product['id']}"] + [f"substance:{c['cas']}" for c in product["section3"]
+                                                 if not c.get("trade_secret") and _substance(c["cas"])],
+    }
+
+
 # ---------------------------------------------------------------- LangChain 도구 노출 (설치돼 있을 때만)
+# (기존 코드) 7개 도구만 노출 — list_products, search_law 추가로 교체
+# TOOLS: list = []
+# try:  # pragma: no cover - 의존성 설치 여부에 따라 달라짐
+#     from langchain_core.tools import tool as _tool
+#
+#     TOOLS = [_tool(fn) for fn in (get_msds, find_products_by_cas, find_products_by_term,
+#                                   get_regulation_update, list_regulation_updates,
+#                                   check_resubmission, assess_update)]
+# except ImportError:
+#     pass
+ALL_FUNCTIONS = (get_msds, list_products, find_products_by_cas, find_products_by_term,
+                 get_regulation_update, list_regulation_updates, check_resubmission, assess_update, search_law,
+                 get_substance, classify_mixture)
 TOOLS: list = []
 try:  # pragma: no cover - 의존성 설치 여부에 따라 달라짐
     from langchain_core.tools import tool as _tool
 
-    TOOLS = [_tool(fn) for fn in (get_msds, find_products_by_cas, find_products_by_term,
-                                  get_regulation_update, list_regulation_updates,
-                                  check_resubmission, assess_update)]
+    TOOLS = [_tool(fn) for fn in ALL_FUNCTIONS]
 except ImportError:
     pass
 

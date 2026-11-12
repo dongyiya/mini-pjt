@@ -1,0 +1,37 @@
+# MSDS 개정 지원 에이전트 의존성 (Python 3.14, 상위 폴더 .venv 기준으로 확인한 버전)
+
+# 공통
+python-dotenv>=1.2
+requests>=2.34
+tenacity>=9.2
+pydantic>=2.14
+
+# LLM·임베딩 (AWS Bedrock)
+boto3>=1.43
+langchain-core>=1.7
+langchain-aws>=1.9
+
+# 에이전트 그래프 (Supervisor + ReAct + HITL)
+langgraph>=1.2
+langgraph-checkpoint-sqlite>=3.1
+
+# RAG (BM25 + FAISS 하이브리드)
+rank-bm25>=0.2.2
+kiwipiepy>=0.24
+faiss-cpu>=1.16
+numpy>=2.5
+
+# API 서버
+fastapi>=0.162
+uvicorn>=0.54
+
+# MCP 서버·클라이언트
+mcp>=1.30
+langchain-mcp-adapters>=0.3.2
+
+# 트레이스
+langsmith>=0.14
+
+# 테스트
+pytest>=9.2
+httpx>=0.28

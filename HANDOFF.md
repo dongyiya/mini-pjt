@@ -2,16 +2,16 @@
 
 > 이 문서는 작업 인계용입니다. **CLAUDE.md의 규칙이 이 문서보다 우선합니다.** 충돌하면 CLAUDE.md를 따릅니다.
 
-- 마지막 갱신: 2026-11-11
+- 마지막 갱신: 2026-11-12 (시행일 기준 조문 선택 요구사항 추가)
 
 ## 저장소 상태
 
 | 항목 | 내용 |
 |---|---|
 | 원격 저장소 | `origin` = https://github.com/dongyiya/mini-pjt.git |
-| 브랜치 | 작업은 `feat/msds-agent`에서 하고, 단계가 끝나면 `master`에 fast-forward로 반영해 둘 다 push |
-| 최신 커밋 | `a3e6705` 계획 보강 (`master`·`feat/msds-agent` 동일) |
-| 커밋 이력 | `0574139` 1일차: 서비스 스펙, 평가셋, 데이터·도구 뼈대 → `a3e6705` 계획 보강: 데이터·도구 범위, 일정·검증 절차, 법령 근거 규칙 |
+| 브랜치 | 작업 브랜치는 **`master`** (2026-11-11 변경). GitHub 기본 브랜치도 `master`. 기존 `feat/msds-agent`는 로컬·원격 모두 삭제함(커밋은 모두 `master`에 포함) |
+| 최신 커밋 | `64ec12d` HANDOFF 정리 |
+| 커밋 이력 | `0574139` 1일차: 서비스 스펙, 평가셋, 데이터·도구 뼈대 → `a3e6705` 계획 보강: 데이터·도구 범위, 일정·검증 절차, 법령 근거 규칙 → `64ec12d` HANDOFF 정리 |
 | Git 설정 | 이 저장소에만 `user.name=dongyiya`, `user.email=dongyiya@empal.com` |
 | 커밋 제외 | `.archify/`(주제 검토 페이지), `index/`, `*.sqlite` (`.gitignore`). `.env`는 상위 폴더에 있어 저장소 밖 |
 
@@ -29,6 +29,7 @@
 | 환경 변수 | **기존 상위 폴더 `.env`를 사용** (`sds-ax-practice/.env`). 프로젝트에 새 `.env`를 만들지 않음 |
 | Docker | 베이스 이미지 `python:3.14-slim` (로컬 `.venv`와 버전을 맞춤). 설치 문제가 생기면 로컬과 Docker 버전을 함께 바꿈 |
 | 평가 정답 | 사용자가 도메인 경험이 거의 없으므로 **공개 원문에 적힌 사실**로만 작성 |
+| UI (2026-11-12 확정) | 시안 그대로 개발. 탭 3개 **영향 분석 → 어시스턴트 → 승인함**(대기 건수 배지). 영향 분석·어시스턴트에서 "초안 만들기"를 누르면 승인함에 REQ가 생기고, 승인·반려(사유 필수)는 `/query`에 "승인/반려 REQ-xxxx"로 보냄. 근거 조문 카드는 세 탭이 같이 쓰고 "현행 / 시행 예정" 배지를 붙임. 시안: claude.ai 캔버스 "MSDS 개정 에이전트 UI 시안"(통합 탭 아트보드가 기준, 비공개 링크) |
 
 ## 완료된 것 (1일차 범위)
 
@@ -100,6 +101,49 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 6. `src/mcp_server.py`, LangSmith 연결
 7. `evaluation/run_eval.py` → round1 보고서 → 개선 → round2 보고서
 8. `README.md`, `Dockerfile`, `run.sh` 채우기
+
+※ 2·4·5·7번을 할 때 아래 "시행일 기준 조문 선택"을 함께 반영합니다.
+
+## 진행 기록 (2026-11-12, 2일차)
+
+테스트: `../.venv/Scripts/python -m pytest` (단위 31개), `-m live` (실제 API 3개). 모두 통과.
+
+| 단계 | 결과 |
+|---|---|
+| 1 의존성 | `requirements.txt` 작성. `faiss-cpu` 설치 완료. `ragas`는 의존 패키지 `scikit-network`가 Python 3.14에서 빌드 실패 → 7단계에서 우회 예정 |
+| 2 데이터 | `scripts/collect_data.py`: 법령 API `target=eflaw`로 현행·시행예정 판 수집. 파일 형식 `data/laws/<법령>@<시행일>.md`(머리말에 `status`, `effective`). 산안법 현행 판(2026-10-27) 확보, 수집 범위 확대(산안법 110~116조 8개, 시행규칙 156~170조 15개, 화관법 2조). 시행예정 판 6개는 대상 조문 내용이 현행과 같아 저장할 조문 없음. 옛 스냅샷 3개는 삭제(git 이력에 있음) |
+| 2 인덱스 | `scripts/build_index.py`: 청크 24개 Titan 임베딩 → `index/vectors.npy`, `index/chunks.json` |
+| 3 기반 | `src/config.py`(상위 `.env`, 경로, `MSDS_TODAY`로 기준일 고정), `src/llm.py`(ChatBedrockConverse, Titan, 재시도) |
+| 4 검색 | `src/retriever.py`: BM25(kiwipiepy) + FAISS RRF 결합, 쿼리 확장(용어 사전, 성분명↔CAS), LLM 리랭킹(선택), 시행일 기준 판 선택(`search()` → 적용/시행 예정 분리, `to_contexts()`가 예정 조문에 `[시행 예정 YYYY-MM-DD]` 표시). 옛 평가셋 법령 질문 12개 1순위 정확도: 하이브리드 8/12 → 리랭킹 10/12 |
+| ~~막힌 것~~ 해결 | 공단 MSDS API 키 오류 → 사용자가 새 일반 인증키 제공, 상위 `.env`의 `DATA_GO_KR_API_KEY` 교체(옛 키는 `../.env.bak-20261112`). `scripts/collect_substances.py`로 공개 성분 11종 수집(영업비밀 성분 제외) |
+| 도구 | `get_substance`(공단 스냅샷), `classify_mixture`(성분별 GHS 분류를 모은 **검토 목록**, 혼합물 최종 분류는 고시 원문 미수집이라 "확인 필요"), `search_law`, `list_products` 추가 → 11개 |
+| 5 스키마·가드레일 | `src/schemas.py`(API Spec 모델, Route, RevisionJudgment), `src/dates.py`(질문 기준일 추출), `src/guardrails.py`(입력 차단 4종, 출력 마스킹) |
+| 5 그래프·API | `src/agent.py`(input_guard → supervisor → regulation/impact/revision(create_agent) → approval interrupt → output_guard, SqliteSaver), `src/api.py`(POST /query, GET /health). 실제 서버로 질문 → 승인 대기 → 승인 확인 |
+| 6 MCP·LangSmith | `src/mcp_server.py`(FastMCP stdio, MSDS DB 도구 6개), `src/mcp_client.py`(백그라운드 세션 브리지, 실패 시 로컬 도구). LangSmith `mini-pjt`에 `msds-query` run 기록 확인. 한계: MCP 경유 도구 호출은 별도 루트 run으로 기록됨 |
+| 7 평가 | `evaluation/run_eval.py`(LLM-as-Judge 통과 판정 + RAGAS). ragas 0.4.3은 `--no-deps` 설치 + 의존성 수동 설치(scikit-network 제외), 없는 Vertex 모듈은 평가 스크립트에서 빈 모듈로 대체. **1차 18/20 통과**(필수 4/4), 실패 16·17번 → `evaluation/round1_report.md` |
+| 법령 수동 갱신 | (사용자 결정) UI '법령 가져오기' 버튼 = `/query`에 "법령 갱신" 명령. `src/law_refresh.py`: 수집 → 조문 비교 → 바뀌었으면 인덱스 재생성. 실제 실행 7초, 바뀐 조문 없음. UI 시안 통합 아트보드에 버튼·결과 패널 반영 |
+| 8 배포 | `run.sh`(setup/index/serve/test/eval1/eval2), `Dockerfile`(python:3.14-slim), `.dockerignore`. **Docker 미설치라 이미지 빌드는 검증 못 함** |
+| **막힌 것** | 2026-11-12 Bedrock **채팅 모델 일일 토큰 한도 소진**(ThrottlingException "Too many tokens per day"). 임베딩은 정상. 한도가 풀리면: ① `python -m evaluation.run_eval --round 1 --ragas-only` ② 16·17번 개선 ③ 2차 평가 |
+| 수집 주기 (2026-11-12 결정) | **수동 버튼만** 사용. 자동 주기 수집은 두지 않음. 법령 개정 시 UI '법령 가져오기'(= `/query` "법령 갱신") 또는 `./run.sh setup` |
+| 남은 일 | 16·17번 개선 코드 반영 완료(판정 사후 검증 `sanitize_judgment`, impact 프롬프트) → 한도 풀리면 1차 RAGAS 재계산, 2차 평가 보고서, README 작성 |
+
+## 시행일 기준 조문 선택 (2026-11-12 요청)
+
+질문 기준일과 법령 시행일을 비교해 그날 적용되는 조문을 고르고, 아직 시행 전인 예정 법령은 따로 표시합니다.
+
+**왜 필요한가**: 지금 `data/laws/산업안전보건법.md`는 `[시행 2027. 4. 28.]` 판입니다. 2026-11-12 기준으로는 **시행 예정** 판이라, 현행 판 없이 이것만 쓰면 아직 효력이 없는 조문을 현행처럼 답하게 됩니다. (시행규칙은 2026. 8. 1., 화관법은 2026. 10. 8. 시행으로 현행 판)
+
+| 단계 | 반영 내용 | 관련 작업 |
+|---|---|---|
+| 데이터 | 법령마다 **현행 판과 시행 예정 판을 모두** 수집합니다. 파일 머리말에 `effective`(시행일, ISO 날짜)를 따로 둡니다. 산안법 현행 판을 추가로 받아야 합니다. 국가법령정보센터 API에서 시행일별 판을 받는 방법은 **확인 필요** | 2번 `collect_data.py` |
+| 인덱스 | 청크 메타데이터에 `law`, `article`, `effective_from`, `effective_to`(다음 판 시행일 전날, 없으면 비움)를 넣습니다 | 2번 `build_index.py` |
+| 기준일 | 질문에 날짜가 있으면("2027년 5월 기준", "다음 달부터") 그 날짜를 쓰고, 없으면 요청 날짜(오늘)를 씁니다. API 요청 본문은 `{"question"}` 그대로 두고 질문 문장에서 날짜를 뽑습니다 | 5번 `agent.py` |
+| 선택 규칙 | `effective_from ≤ 기준일` 인 판 중 가장 최근 판을 **적용 조문**으로 씁니다. `effective_from > 기준일`인 판은 **시행 예정**으로 분류하고 판정 근거로 쓰지 않습니다 | 4번 `retriever.py` (검색 후 필터) |
+| 응답 | `answer`에 적용 조문으로 판정하고, 내용이 바뀌는 예정 조문이 있으면 "시행 예정(YYYY-MM-DD 시행)" 단락으로 따로 알립니다. `contexts`는 필드 구조(`doc_id`, `text`)를 바꾸지 않고, 예정 조문은 `text` 앞에 `[시행 예정 YYYY-MM-DD]`를 붙여 구분합니다 | 5번, API Spec 준수 |
+| doc_id | 현행 판은 지금 형식(`law:산안법:110`)을 유지합니다. 예정 판은 `law:산안법:110@2027-04-28`처럼 시행일을 붙이는 안을 검토합니다. 평가셋 기대 doc_id와 충돌하지 않는지 확인 후 확정 | 2·4번 |
+| trace | `select_law_version` 단계를 추가해 `input`에 기준일, `output`에 고른 판과 제외한 예정 판을 남깁니다 | 5번 |
+| 평가 | 기준일을 지정한 질문, 예정 조문을 따로 표시하는지 보는 질문을 `edge`로 추가합니다. 정답은 수집한 원문의 시행일로만 작성합니다 | 7번 |
+| UI | 근거 조문 카드에 "현행 / 시행 예정" 배지를 붙입니다 (UI 시안 반영 대상) | UI 개발 시 |
 
 ## 남은 일정과 완료 기준
 

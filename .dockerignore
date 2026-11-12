@@ -1,0 +1,9 @@
+.git
+.archify
+__pycache__
+*.pyc
+.pytest_cache
+index
+*.sqlite
+.env
+evaluation/results
