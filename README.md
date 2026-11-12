@@ -48,7 +48,8 @@ UI는 탭 4개(영향 분석 대시보드, 제품 MSDS, 어시스턴트, 승인�
 ```bash
 ./run.sh setup    # 처음 한 번: 법령·물질 수집 + 검색 인덱스 생성
 ./run.sh serve    # 서버 → 화면 http://localhost:8000/ , API POST http://localhost:8000/query
-./run.sh eval1    # 1차 평가 (eval2: 2차)
+./run.sh eval1    # 1차 평가 (eval2: 2차). 시작할 때 제품 MSDS를 원래 데모 데이터로 자동 원복
+./run.sh reset-msds  # 승인으로 바뀐 제품 MSDS를 원래 데모 데이터로 되돌림
 ./run.sh test     # 단위 테스트
 ```
 

@@ -137,6 +137,8 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 | 실제 화면 (UI) | `src/static/index.html` + `src/api.py` `GET /`(화면을 열 때 데이터 파일에서 읽은 목록을 HTML에 넣어 보냄, 새 API 없음). 영향 분석 표가 판정 JSON을 끝까지 읽도록 trace `revision_judgment` 출력 길이 제한을 20000자로 늘림 |
 | 대시보드·MSDS 조회·변경 전후 | (사용자 요청) 영향 분석 탭을 규칙 기반 대시보드(`assess_update`, AI 없이 즉시 표시)로, '제품 MSDS' 탭 추가(마스킹된 MSDS + 공단 물질 정보), 승인함에 현재 → 변경 후 MSDS 비교. `src/revision_preview.py`가 변경 작업(op)을 만들고 화면이 적용. U-02~U-04에 구조화된 `changes` 추가(U-04 새 제품명은 '알코-와이프 프로 E-70', 기존 '(세정용 에탄올)' 표기 빠짐). U-01은 '유독물질' 표기 삭제 + 대체 표기 '확인 필요'(공단 자료 참고값 표시). 브라우저 자동 확인 도구가 없어 화면은 가짜 DOM 실행으로만 확인 |
 | 문서 정리 (2026-11-12) | README 작성, SERVICE.md 3절(도구·데이터·화면) 현행화, CLAUDE.md 폴더 구조, round2_report.md(미실시 사유·확인할 개선), SOP 원문 대조 표시, 매뉴얼 응답 시간 |
+| 승인 → MSDS 반영 (2026-11-12, **시험 기능**) | 승인하면 `src/msds_revision.py`가 변경을 `data/msds/products.json`에 반영(개정판 +1, 개정일=승인일), 이전 판은 `data/msds/history/`, 기록은 `revision_log.json`(둘 다 커밋 제외). **(나)안**: '확인 필요'(U-01 '유독물질' 대체 표기)는 담당자 입력 없이는 승인 불가. 입력 형식은 승인 문장 다음 줄 `P-001 15번: 사고대비물질(톨루엔)`. 화면은 추천 문구(안전보건공단 단일물질 자료의 화관법 규제)를 미리 채우고 사유를 툴팁·별도 상자로 표시. 서버 시작 시 체크포인트의 승인 대기 건을 승인함에 자동으로 불러옴 |
+| **평가 전 원복 (2026-11-12 사용자 결정)** | 승인 반영은 시험 기능이므로 **평가는 항상 원래 데모 데이터로**. `evaluation/run_eval.py`가 시작할 때 `reset_to_baseline()`으로 `products.json`을 기준본 `data/msds/products.baseline.json`(커밋됨, 원래 데모 데이터)으로 되돌리고 이력 삭제. 수동: `./run.sh reset-msds`. `products.json`이 바뀐 상태로 커밋하지 않도록 주의 |
 | 수집 주기 (2026-11-12 결정) | **수동 버튼만** 사용. 자동 주기 수집은 두지 않음. 법령 개정 시 UI '법령 가져오기'(= `/query` "법령 갱신") 또는 `./run.sh setup` |
 | 남은 일 | 16·17번 개선 코드 반영 완료(판정 사후 검증 `sanitize_judgment`, impact 프롬프트) → 한도 풀리면 ① 2차 평가 ② 1차 RAGAS 재계산 ③ README의 RAGAS·통과율 갱신. 그 밖: 응답 시간(15초 초과 3/20), Docker 빌드 검증, 시행령·고시 수집, 원격 push |
 

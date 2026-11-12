@@ -8,3 +8,7 @@ index/
 # SQLite 실행 중 임시 파일(WAL)
 *.sqlite-shm
 *.sqlite-wal
+# 승인 시 생기는 MSDS 개정 이력 (실행 데이터)
+data/msds/history/
+data/msds/revision_log.json
+data/msds/*.json.tmp

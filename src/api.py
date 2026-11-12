@@ -87,7 +87,18 @@ def ui() -> HTMLResponse:
     # (기존 코드) 변경 사건·제품 목록만 전달 — 대시보드·MSDS 조회·변경 전후 비교 데이터를 추가하며 교체
     # boot = {"updates": _tools.list_regulation_updates(), "products": _tools.list_products(), "laws": laws,
     #         "lawsAsOf": max((x["collected"] for x in laws if x["collected"]), default="")}
-    boot = {**build_ui_data(), "laws": laws,
+    # (기존 코드) 승인 대기 건 없이 전달 — 서버 체크포인트의 승인 대기 건을 승인함에 불러오도록 교체
+    # boot = {**build_ui_data(), "laws": laws,
+    #         "lawsAsOf": max((x["collected"] for x in laws if x["collected"]), default="")}
+    from src.revision_preview import pending_requests
+
+    try:
+        graph = get_graph()
+        pending = pending_requests(graph, graph.checkpointer)
+    except Exception:  # 체크포인트를 읽지 못해도 화면은 열리게 함
+        log.exception("pending requests load failed")
+        pending = []
+    boot = {**build_ui_data(), "laws": laws, "pending": pending,
             "lawsAsOf": max((x["collected"] for x in laws if x["collected"]), default="")}
     data = _json.dumps(boot, ensure_ascii=False).replace("</", "<\/")
     return HTMLResponse(_UI.read_text(encoding="utf-8").replace("/*__BOOT__*/null", data))

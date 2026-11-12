@@ -62,15 +62,37 @@ def update_ops(update_id: str) -> dict[str, list[dict]]:
                     continue
                 names = re.findall(r"\(([^)]*)\)", item)
                 refs = []
+                # (기존 코드) 삭제 op + 참고 메모만 만듦 — 사용자 결정(2026-11-12, (나)안)으로 담당자 입력이 필요한
+                # replace op(추천 문구·사유 포함)로 교체
+                # for n in (names[0].split(",") if names else []):
+                #     n = n.strip()
+                #     if n in public:
+                #         regs = _substance_regs(public[n], law)
+                #         refs.append(f"{n} – {', '.join(regs) if regs else '자료 없음'}")
+                # note = (f"'{term}' 표기 삭제 ({u['id']}). 대체 표기는 확인 필요"
+                #         + (f" · 참고(안전보건공단 단일물질 자료의 {law} 규제): {'; '.join(refs)}" if refs else ""))
+                # out.setdefault(p["id"], []).append(
+                #     {"op": "remove", "section": section, "law": law, "value": item, "note": note})
+                suggest_items: list[str] = []
                 for n in (names[0].split(",") if names else []):
                     n = n.strip()
                     if n in public:
-                        regs = _substance_regs(public[n], law)
-                        refs.append(f"{n} – {', '.join(regs) if regs else '자료 없음'}")
+                        regs = [r for r in _substance_regs(public[n], law) if r and r != "해당없음"]
+                        refs.append(f"{n} – {', '.join(regs) if regs else '해당 없음'}")
+                        suggest_items += [f"{r}({n})" for r in regs]
+                existing = set(items) - {item}
+                suggest_items = [s for s in dict.fromkeys(suggest_items) if s not in existing]
+                suggest = ", ".join(suggest_items) or "해당 표기 없음"
+                reason = (f"{u['id']} {u['title']}"
+                          + (f" ({u['effective']} 시행)" if u.get("effective") else "")
+                          + f". {u['summary']} 기존 '{item}' 표기를 현행 구분으로 바꿔야 하는데, 각 성분이 어느 구분에 "
+                          "해당하는지는 지정·고시 결과로 담당자가 확인해야 합니다.")
                 note = (f"'{term}' 표기 삭제 ({u['id']}). 대체 표기는 확인 필요"
                         + (f" · 참고(안전보건공단 단일물질 자료의 {law} 규제): {'; '.join(refs)}" if refs else ""))
-                out.setdefault(p["id"], []).append(
-                    {"op": "remove", "section": section, "law": law, "value": item, "note": note})
+                out.setdefault(p["id"], []).append({
+                    "op": "replace", "section": section, "law": law, "value": item, "needs_input": True,
+                    "suggest": suggest, "suggest_source": f"안전보건공단 단일물질 자료의 {law} 규제 항목",
+                    "reason": reason, "note": note})
     return out
 
 
@@ -90,3 +112,32 @@ def build_ui_data() -> dict[str, Any]:
         "ops": {u["id"]: update_ops(u["id"]) for u in updates},
         "substances": substances,
     }
+
+
+def pending_requests(graph, checkpointer) -> list[dict[str, Any]]:
+    """서버 체크포인트(SqliteSaver)에서 승인 대기(approval interrupt) 중인 요청을 모읍니다(최근 것부터).
+
+    화면을 열 때 승인함에 불러와, 다른 브라우저·서버 재시작 후에도 대기 건을 볼 수 있게 합니다.
+    대기 답변은 output_guard 를 거치기 전 상태라 여기서 마스킹합니다.
+    """
+    from src import guardrails
+
+    thread_ids: list[str] = []
+    for t in checkpointer.list(None):
+        tid = t.config["configurable"]["thread_id"]
+        if tid not in thread_ids:
+            thread_ids.append(tid)
+    out = []
+    for tid in thread_ids:
+        snap = graph.get_state({"configurable": {"thread_id": tid}})
+        if not snap.next or "approval" not in snap.next:
+            continue
+        v = snap.values
+        out.append({
+            "id": tid, "question": v.get("question", ""), "status": "pending",
+            "answer": guardrails.mask_output(v.get("answer", ""))[0],
+            "contexts": [{"doc_id": c["doc_id"], "text": c["text"]} for c in v.get("contexts", [])],
+            "judgment": v.get("judgment"), "createdAt": snap.created_at, "source": "server",
+        })
+    out.sort(key=lambda r: r["createdAt"] or "", reverse=True)
+    return out

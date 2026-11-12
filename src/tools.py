@@ -35,10 +35,25 @@ RESUBMISSION_DOC_IDS = ["law:산안법:110", "law:산안법시행규칙:159"]
 
 
 # ---------------------------------------------------------------- 데이터 로딩
-@lru_cache(maxsize=1)
+# (기존 코드) 처음 읽은 내용을 계속 캐시 — 승인 시 MSDS가 바뀌면(src/msds_revision.py) 서버·MCP 프로세스가
+# 바뀐 파일을 다시 읽도록 파일 수정 시각 기준 캐시로 교체
+# @lru_cache(maxsize=1)
+# def _products() -> list[dict[str, Any]]:
+#     with open(DATA_DIR / "msds" / "products.json", encoding="utf-8") as f:
+#         return json.load(f)["products"]
+_PRODUCTS_CACHE: dict[str, Any] = {"mtime": None, "data": None}
+
+
 def _products() -> list[dict[str, Any]]:
-    with open(DATA_DIR / "msds" / "products.json", encoding="utf-8") as f:
-        return json.load(f)["products"]
+    path = DATA_DIR / "msds" / "products.json"
+    mtime = path.stat().st_mtime_ns
+    if _PRODUCTS_CACHE["mtime"] != mtime:
+        with open(path, encoding="utf-8") as f:
+            _PRODUCTS_CACHE.update(mtime=mtime, data=json.load(f)["products"])
+    return _PRODUCTS_CACHE["data"]
+
+
+_products.cache_clear = lambda: _PRODUCTS_CACHE.update(mtime=None, data=None)  # 기존 호출부 호환
 
 
 @lru_cache(maxsize=1)

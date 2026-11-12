@@ -167,6 +167,11 @@ def run(round_no: int, only: set[str] | None, skip_ragas: bool) -> dict:
     from src.agent import build_graph, run_query, sqlite_checkpointer
     from src.llm import get_chat_model
 
+    # 사용자 결정(2026-11-12): 승인 → MSDS 반영은 시험 기능이므로 평가 전에 원래 데모 데이터로 되돌린 뒤 평가
+    from src.msds_revision import reset_to_baseline
+
+    if reset_to_baseline():
+        print("[안내] 승인 반영으로 바뀐 제품 MSDS를 원래 데모 데이터로 되돌린 뒤 평가합니다.", flush=True)
     cases = [c for c in load_cases() if not only or c["id"] in only]
     graph = build_graph(checkpointer=sqlite_checkpointer())
     judge_model = get_chat_model(max_tokens=2048)

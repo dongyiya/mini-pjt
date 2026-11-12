@@ -414,9 +414,24 @@ def build_graph(brains: Brains | None = None, checkpointer=None):
         j = RevisionJudgment(**state["judgment"])
         decision = interrupt({"req_id": state["req_id"], "draft": j.draft})
         d = decision.get("decision")
+        # (기존 코드) 승인 시 초안 확정 문구만 돌려줌 — 승인된 변경을 제품 MSDS에 반영하도록 교체 (2026-11-12, (나)안)
+        # if d == "approve":
+        #     ans = (f"{state['req_id']} 승인 완료: 개정 초안이 확정되었습니다.\n\n" + format_judgment(j, state["req_id"], False)
+        #            + "\n\n공단 제출은 자동으로 하지 않습니다. 확정본으로 담당자가 직접 제출하세요.")
+        # else:
         if d == "approve":
-            ans = (f"{state['req_id']} 승인 완료: 개정 초안이 확정되었습니다.\n\n" + format_judgment(j, state["req_id"], False)
+            from src import msds_revision
+
+            results = msds_revision.apply(state["req_id"], state["question"], state["judgment"],
+                                          decision.get("inputs") or {})
+            applied = any(r["changes"] for r in results)
+            ans = (f"{state['req_id']} 승인 완료: 개정 초안이 확정되었고"
+                   + (" 제품 MSDS에 반영했습니다." if applied else ", 제품 MSDS에서 바꿀 내용은 없었습니다.") + "\n\n"
+                   + msds_revision.render_result(results) + "\n\n" + format_judgment(j, state["req_id"], False)
                    + "\n\n공단 제출은 자동으로 하지 않습니다. 확정본으로 담당자가 직접 제출하세요.")
+            return {"decision": decision, "answer": ans,
+                    "trace": [step("hitl_decision", state["req_id"], decision),
+                              step("msds_apply", state["req_id"], results, limit=6000)]}
         else:
             reason = decision.get("reason") or "사유 없음"
             ans = f"{state['req_id']} 반려: 개정 초안을 확정하지 않았습니다. 사유: {reason}"
@@ -493,7 +508,22 @@ def run_query(question: str, graph) -> dict:
         if decision == "reject" and not reason:
             return {"answer": f"반려하려면 사유를 함께 보내 주세요. 예: '반려 {req_id} 함유량 재확인 필요'",
                     "contexts": [], "trace": [step("hitl_decision", question, "반려 사유 없음")]}
-        graph.invoke(Command(resume={"decision": decision, "reason": reason}), config)
+        # (기존 코드) 입력값 확인 없이 바로 재개 — '확인 필요' 항목은 대체 표기를 받아야 승인되도록 교체 ((나)안)
+        # graph.invoke(Command(resume={"decision": decision, "reason": reason}), config)
+        # return _response(graph.get_state(config).values)
+        inputs: dict[str, str] = {}
+        if decision == "approve":
+            from src import msds_revision
+
+            v = snap.values
+            required = msds_revision.required_inputs(msds_revision.request_ops(v.get("question", ""), v.get("judgment")))
+            inputs = msds_revision.parse_inputs(reason)
+            msg = msds_revision.missing_inputs_message(req_id, required, inputs)
+            if msg:
+                return {"answer": msg, "contexts": [],
+                        "trace": [step("hitl_decision", question, "대체 표기 입력 필요"),
+                                  step("required_inputs", req_id, required, limit=6000)]}
+        graph.invoke(Command(resume={"decision": decision, "reason": reason, "inputs": inputs}), config)
         return _response(graph.get_state(config).values)
 
     req_id = new_req_id()
