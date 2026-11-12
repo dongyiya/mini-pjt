@@ -13,7 +13,8 @@
 | [API Spec.md](API%20Spec.md) | `POST /query` 입출력 |
 | [evaluation/round1_report.md](evaluation/round1_report.md), [round2_report.md](evaluation/round2_report.md) | 1·2차 평가 보고서 |
 | [HANDOFF.md](HANDOFF.md) | 인계용 현재 상태와 남은 일 |
-| [CLAUDE.md](CLAUDE.md) | 개발 규칙, `src/` 폴더 역할과 배치 규칙 |
+| [STRUCTURE.md](STRUCTURE.md) | 폴더 구조, `src/` 도메인별 소스 폴더 구조, 파일 배치 규칙 |
+| [CLAUDE.md](CLAUDE.md) | Claude 작업 규칙 (STRUCTURE.md를 불러옴) |
 
 ## 활용한 패턴 (Day 1~7)
 BuildPattern 12개 중 11개를 적용했습니다(10번 장기 메모리 제외). 필수 1·3·11·12 포함.

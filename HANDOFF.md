@@ -55,7 +55,7 @@ curl·PowerShell    ─┴→ POST /query → input_guard ─(차단)───�
 | `src/guardrails/` | 입력 차단, 출력 마스킹 |
 | `src/shared/` | 설정, Bedrock 클라이언트, 기준일 추출, trace 단계 |
 
-폴더 배치 규칙은 [CLAUDE.md](CLAUDE.md) "소스 폴더 구조" 절, 다이어그램은 `.archify/`(코드 기준 아키텍처, 기능 아키텍처)에 있습니다.
+폴더 구조와 파일 배치 규칙은 [STRUCTURE.md](STRUCTURE.md), 파일별 사양서는 [docs/spec/](docs/spec/README.md), 다이어그램은 `.archify/`(코드 기준 아키텍처, 기능 아키텍처)에 있습니다.
 
 ### 빌드 패턴 (11개 적용, 10번 장기 메모리 제외)
 
