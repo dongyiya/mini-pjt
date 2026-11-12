@@ -65,6 +65,15 @@ PowerShell·curl 등     ─┴→ POST /query (FastAPI, src/api/app.py)
 | `guardrails/` | 입력 차단, 출력 마스킹 |
 | `shared/` | 설정, Bedrock 클라이언트, 기준일 추출, trace 단계 |
 
+**제출 템플릿 구조와의 대응**: 템플릿의 `src/` 바로 아래 파일들은 도메인별 폴더로 나눠 두었습니다(템플릿의 나머지 파일·폴더는 같은 위치에 있음).
+
+| 템플릿 경로 | 이 저장소의 위치 |
+|---|---|
+| `src/agent.py` (메인 에이전트 그래프) | [src/workflows/graph.py](src/workflows/graph.py) — 그래프·`run_query`. 프롬프트·LLM 체인은 [src/agents/](src/agents/) |
+| `src/tools.py` (도메인 도구) | [src/tools/msds_tools.py](src/tools/msds_tools.py) — 도구 11개. MCP 서버·클라이언트는 같은 폴더 |
+| `src/retriever.py` (RAG 파이프라인) | [src/regulation/retriever.py](src/regulation/retriever.py) — 하이브리드 검색·리랭크·시행일 판 선택 |
+| `src/...` | 그 밖의 폴더는 위 표 |
+
 ## 실행 방법
 `mini-pjt` 폴더에서 Git Bash로 실행합니다. Python은 상위 폴더의 `.venv`(3.14)를, 키는 상위 폴더의 `.env`를 씁니다.
 
