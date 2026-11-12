@@ -76,6 +76,7 @@ class AgentState(TypedDict, total=False):
     blocked: bool
     answer: str
     judgment: dict | None
+    requested: bool          # (추가 2026-11-12) 사용자가 승인 요청을 올렸는지
     decision: dict | None
     contexts: Annotated[list[dict], operator.add]
     trace: Annotated[list[dict], operator.add]
@@ -134,10 +135,21 @@ def build_graph(brains: Brains | None = None, checkpointer=None):
             upd["trace"] = upd["trace"] + [step("revision_judgment", "RevisionJudgment", j.model_dump(), limit=20000)]
             if removed:
                 upd["trace"] = upd["trace"] + [step("judgment_check", "assess_update 대조", removed)]
-            upd["answer"] = (format_judgment(j, state["req_id"], pending=True) if j.revision_needed
+            # (기존 코드) 개정이 필요하면 바로 승인 대기 안내 — 먼저 승인 요청 여부를 묻도록 교체 (2026-11-12)
+            # upd["answer"] = (format_judgment(j, state["req_id"], pending=True) if j.revision_needed
+            #                  else (final or format_judgment(j, state["req_id"], pending=False)))
+            upd["answer"] = (format_judgment(j, state["req_id"], pending=False, ask_request=True) if j.revision_needed
                              else (final or format_judgment(j, state["req_id"], pending=False)))
             return upd
         return node
+
+    # (추가 2026-11-12) 개정 초안을 바로 승인 대기로 올리지 않고 사용자에게 승인 요청 여부를 묻습니다.
+    # '승인 요청 REQ-xxxx'(화면 '승인 요청하기' 버튼)를 받으면 approval 로 넘어갑니다. 중복 확인은 run_query 에서 합니다.
+    def confirm_request(state: AgentState):
+        ans = interrupt({"type": "confirm_request", "req_id": state["req_id"]})
+        if ans.get("confirm"):
+            return {"requested": True, "trace": [step("approval_request", state["req_id"], "담당자 승인 요청을 올림")]}
+        return {"requested": False, "trace": [step("approval_request", state["req_id"], "승인 요청 안 함")]}
 
     def approval(state: AgentState):
         j = RevisionJudgment(**state["judgment"])
@@ -190,6 +202,7 @@ def build_graph(brains: Brains | None = None, checkpointer=None):
     g.add_node("supervisor", supervisor)
     for name in ("regulation", "impact", "revision"):
         g.add_node(f"{name}_agent", sub_agent(name))
+    g.add_node("confirm_request", confirm_request)      # (추가 2026-11-12)
     g.add_node("approval", approval)
     g.add_node("output_guard", output_guard)
 
@@ -201,8 +214,15 @@ def build_graph(brains: Brains | None = None, checkpointer=None):
                             ["regulation_agent", "impact_agent", "revision_agent", "output_guard"])
     g.add_edge("regulation_agent", "output_guard")
     g.add_edge("impact_agent", "output_guard")
+    # (기존 코드) 개정 필요 → 바로 approval — 승인 요청 여부를 먼저 묻는 confirm_request 를 거치도록 교체 (2026-11-12)
+    # g.add_conditional_edges("revision_agent",
+    #                         lambda s: "approval" if (s.get("judgment") or {}).get("revision_needed") else "output_guard",
+    #                         ["approval", "output_guard"])
     g.add_conditional_edges("revision_agent",
-                            lambda s: "approval" if (s.get("judgment") or {}).get("revision_needed") else "output_guard",
+                            lambda s: "confirm_request" if (s.get("judgment") or {}).get("revision_needed")
+                            else "output_guard",
+                            ["confirm_request", "output_guard"])
+    g.add_conditional_edges("confirm_request", lambda s: "approval" if s.get("requested") else "output_guard",
                             ["approval", "output_guard"])
     g.add_edge("approval", "output_guard")
     g.add_edge("output_guard", END)
@@ -226,6 +246,65 @@ def _response(state: dict) -> dict:
             "trace": [{"step": t["step"], "input": t["input"], "output": t["output"]} for t in state.get("trace", [])]}
 
 
+# ---------------------------------------------------------------- 승인 요청 (2026-11-12 추가)
+REQUEST = re.compile(r"^\s*승인\s*요청\s+(REQ-[0-9A-Za-z]+)\s*$", re.I)
+
+
+def parse_request(question: str) -> str | None:
+    """'승인 요청 REQ-1A2B' → 'REQ-1A2B' (개정 초안을 담당자 승인 대기로 올리는 명령)."""
+    m = REQUEST.match(question)
+    return m[1].upper() if m else None
+
+
+def _interrupt_response(values: dict, answer: str, extra_steps: list[dict]) -> dict:
+    """그래프가 interrupt 로 멈춘 상태의 응답 — output_guard 를 거치지 않았으므로 여기서 마스킹하고 정책 근거를 붙입니다."""
+    from src.workflows import evidence_text as context_text
+
+    masked, applied = guardrails.mask_output(answer)
+    values = dict(values)
+    values["answer"] = masked
+    values["trace"] = list(values.get("trace", [])) + extra_steps + [
+        step("output_guard", "answer", "마스킹: " + (", ".join(applied) if applied else "없음"))]
+    if all(c["doc_id"] != context_text.POLICY_DOC_ID for c in values.get("contexts", [])):
+        values["contexts"] = list(values.get("contexts", [])) + [
+            {"doc_id": context_text.POLICY_DOC_ID, "text": context_text.service_policy_text()}]
+    return _response(values)
+
+
+def request_approval(question: str, req_id: str, graph) -> dict:
+    """개정 초안(req_id)을 승인 대기로 올립니다. 같은 변경의 승인 대기 건이 이미 있으면 중복이라고 알리고 올리지 않습니다."""
+    from src.revision import dedupe
+
+    config = {"configurable": {"thread_id": req_id}}
+    snap = graph.get_state(config)
+    if snap.next and "approval" in snap.next:
+        return {"answer": f"{req_id}는 이미 승인 요청된 건입니다(승인 대기 중). 승인함에서 승인 또는 반려해 주세요.",
+                "contexts": [], "trace": [step("approval_request", question, "이미 승인 대기 중")]}
+    if not snap.next or "confirm_request" not in snap.next:
+        return {"answer": f"{req_id}에 해당하는 개정 초안이 없습니다. 초안 번호를 확인해 주세요.",
+                "contexts": [], "trace": [step("approval_request", question, "초안 없음")]}
+    v = snap.values
+    dup = dedupe.find_pending_duplicate(graph, req_id, v.get("question", ""), v.get("judgment"))
+    if dup:
+        return {"answer": (f"중복입니다. 같은 변경의 승인 요청 {dup} 건이 이미 승인 대기 중이라 {req_id}는 새로 올리지 않았습니다. "
+                           f"승인함에서 {dup} 건으로 승인 또는 반려해 주세요."),
+                "contexts": [], "trace": [step("duplicate_check", req_id, f"{dup}와 같은 변경 → 승인 요청하지 않음(중복)")]}
+    # (추가 2026-11-12) 같은 변경이 이미 승인되어 MSDS에 반영돼 있어도 중복으로 알림 (원복 뒤에는 다시 요청 가능)
+    done = dedupe.find_approved_duplicate(graph, req_id, v.get("question", ""), v.get("judgment"))
+    if done:
+        rid, day = done
+        return {"answer": (f"중복입니다. 같은 변경이 이미 {rid} 건으로 승인되어 제품 MSDS에 반영돼 있습니다"
+                           f"{f'({day} 승인)' if day else ''}. {req_id}는 승인 요청을 올리지 않았습니다. "
+                           "반영된 내용은 '제품 MSDS' 탭에서 확인하세요."),
+                "contexts": [], "trace": [step("duplicate_check", req_id, f"{rid} 승인·반영 완료와 같은 변경 → 승인 요청하지 않음(중복)")]}
+    graph.invoke(Command(resume={"confirm": True}), config)
+    values = dict(graph.get_state(config).values)
+    j = RevisionJudgment(**values["judgment"])
+    answer = (f"{req_id} 승인 요청을 올렸습니다. 승인함에서 검토한 뒤 승인 또는 반려해 주세요.\n\n"
+              + format_judgment(j, req_id, pending=True))
+    return _interrupt_response(values, answer, [step("hitl_interrupt", req_id, "담당자 승인 대기")])
+
+
 def run_query(question: str, graph) -> dict:
     """POST /query 한 번 처리. 승인/반려 명령이면 해당 REQ의 그래프를 재개합니다.
     '법령 갱신' 명령이면 법령을 다시 가져옵니다(UI '법령 가져오기' 버튼, src/regulation/refresh.py)."""
@@ -234,11 +313,20 @@ def run_query(question: str, graph) -> dict:
 
     if law_refresh.is_refresh_command(question):
         return law_refresh.refresh()
+    # (추가 2026-11-12) '승인 요청 REQ-xxxx' — 개정 초안을 승인 대기로 올림 (중복이면 알리고 올리지 않음)
+    asked = parse_request(question)
+    if asked:
+        return request_approval(question, asked, graph)
     cmd = parse_decision(question)
     if cmd:
         decision, req_id, reason = cmd
         config = {"configurable": {"thread_id": req_id}}
         snap = graph.get_state(config)
+        # (추가 2026-11-12) 아직 승인 요청 전인 초안에 승인/반려를 보낸 경우
+        if snap.next and "confirm_request" in snap.next:
+            return {"answer": (f"{req_id}는 아직 승인 요청 전인 개정 초안입니다. "
+                               f"먼저 '승인 요청 {req_id}'를 보내 승인 대기로 올린 뒤 승인 또는 반려해 주세요."),
+                    "contexts": [], "trace": [step("hitl_decision", question, "승인 요청 전 초안")]}
         if not snap.next or "approval" not in snap.next:
             return {"answer": f"{req_id}에 해당하는 승인 대기 건이 없습니다. 요청 번호를 확인해 주세요.",
                     "contexts": [], "trace": [step("hitl_decision", question, "대기 건 없음")]}
@@ -270,19 +358,23 @@ def run_query(question: str, graph) -> dict:
     graph.invoke({"question": question, "req_id": req_id}, config)
     snap = graph.get_state(config)
     values = dict(snap.values)
+    # (추가 2026-11-12) 개정 초안 → 바로 승인 대기로 올리지 않고 승인 요청 여부를 물음 (confirm_request interrupt)
+    if snap.next and "confirm_request" in snap.next:
+        return _interrupt_response(values, values.get("answer", ""),
+                                   [step("approval_draft", req_id, "개정 초안 — 승인 요청 여부 확인 대기")])
     if snap.next and "approval" in snap.next:      # interrupt → 승인 대기 응답 (출력 가드 직접 적용)
-        # (추가 2026-11-12) 같은 변경의 승인 대기 건이 이미 있으면 새 요청을 닫고 기존 요청 번호로 안내 (src/revision/dedupe.py)
-        from src.revision import dedupe
-
-        dup = dedupe.find_pending_duplicate(graph, req_id, values.get("question", ""), values.get("judgment"))
-        if dup:
-            dedupe.close_as_duplicate(graph, req_id, dup)
-            j = RevisionJudgment(**values["judgment"])
-            values["answer"] = (f"같은 변경의 승인 대기 건({dup})이 이미 있어 새 승인 요청을 만들지 않았습니다. "
-                                f"{dup} 건으로 승인 또는 반려해 주세요.\n\n" + format_judgment(j, dup, pending=True))
-            values["trace"] = list(values.get("trace", [])) + [
-                step("duplicate_check", req_id, f"{dup}와 같은 변경 → 새 요청 {req_id} 닫음(중복)")]
-            req_id = dup
+        # (기존 코드) 질문 때 바로 승인 대기가 되던 시기의 중복 처리 — 승인 요청 단계(request_approval)에서 중복을 알리도록 옮김
+        # from src.revision import dedupe
+        #
+        # dup = dedupe.find_pending_duplicate(graph, req_id, values.get("question", ""), values.get("judgment"))
+        # if dup:
+        #     dedupe.close_as_duplicate(graph, req_id, dup)
+        #     j = RevisionJudgment(**values["judgment"])
+        #     values["answer"] = (f"같은 변경의 승인 대기 건({dup})이 이미 있어 새 승인 요청을 만들지 않았습니다. "
+        #                         f"{dup} 건으로 승인 또는 반려해 주세요.\n\n" + format_judgment(j, dup, pending=True))
+        #     values["trace"] = list(values.get("trace", [])) + [
+        #         step("duplicate_check", req_id, f"{dup}와 같은 변경 → 새 요청 {req_id} 닫음(중복)")]
+        #     req_id = dup
         masked, applied = guardrails.mask_output(values.get("answer", ""))
         values["answer"] = masked
         values["trace"] = list(values.get("trace", [])) + [

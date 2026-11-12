@@ -253,6 +253,34 @@ function traceView(trace) {
     h("ol", { class: "muted", style: "margin: 6px 0 0; padding-left: 18px" },
       trace.map((t) => h("li", {}, h("code", {}, t.step), " — ", t.output.slice(0, 160)))));
 }
+// (추가 2026-11-12) 개정 초안은 바로 승인함에 올리지 않고, 사용자가 '승인 요청하기'를 눌러야 승인 대기로 올립니다.
+// 같은 변경의 승인 대기 건이 이미 있으면 서버가 '중복입니다'라고 알려 주고 올리지 않습니다.
+const draftReq = (body) => (body.trace.find((t) => t.step === "approval_draft") || {}).input || null;
+function requestBox(draft, question) {
+  const status = h("div", { class: "muted", style: "margin-top: 8px" });
+  const btn = h("button", { class: "btn primary", style: "height: 36px", onclick: async () => {
+    btn.disabled = no.disabled = true;
+    const stop = waiting(status, "승인 요청을 올리고 있습니다.");
+    const r = await ask(`승인 요청 ${draft}`);
+    stop();
+    if (!r.ok) { status.replaceChildren(errorBox(r.error)); btn.disabled = no.disabled = false; return; }
+    const req = pendingReq(r.body);
+    if (req) {
+      addPending(req, question, r.body);
+      status.replaceChildren(h("div", { class: "notice info" }, `승인함에 올렸습니다 (${req}). `,
+        h("button", { class: "btn", style: "height: 36px; margin-left: 8px", onclick: () => { activeReq = req; showTab("review"); } }, "승인함에서 검토")));
+    } else {   // 중복·이미 요청됨·초안 없음
+      status.replaceChildren(h("div", { class: "notice wait" }, r.body.answer));
+    }
+  } }, "승인 요청하기");
+  const no = h("button", { class: "btn", style: "height: 36px; margin-left: 8px", onclick: () => {
+    btn.disabled = no.disabled = true;
+    status.replaceChildren(h("div", { class: "muted" }, `승인 요청을 올리지 않았습니다. 나중에 '승인 요청 ${draft}'를 보내면 올릴 수 있습니다.`));
+  } }, "요청 안 함");
+  return h("div", { class: "notice info", style: "margin-top: 10px" },
+    h("div", {}, `개정 초안(${draft})을 담당자 승인 요청으로 올릴까요?`),
+    h("div", { style: "margin-top: 8px" }, btn, no), status);
+}
 function addPending(id, question, body) {
   if (!id || reqs.some((r) => r.id === id)) return;
   reqs.unshift({ id, question, status: "pending", answer: body.answer, contexts: body.contexts,
@@ -302,9 +330,15 @@ $("#run-impact").addEventListener("click", async () => {
   const resub = products.filter((p) => p.resubmission_required).length;
   out.append(h("div", { class: "stats" },
     stat("변경 사건", u ? u.type : id), stat("개정 필요 제품", products.length, "var(--blue)"),
-    stat("재제출 대상", resub, "var(--amber)"), stat("승인 상태", req ? "승인 대기" : "해당 없음", req ? "var(--amber)" : "var(--ink-2)")));
+    // (기존 코드) stat("재제출 대상", resub, "var(--amber)"), stat("승인 상태", req ? "승인 대기" : "해당 없음", req ? "var(--amber)" : "var(--ink-2)")));
+    stat("재제출 대상", resub, "var(--amber)"),
+    stat("승인 상태", req ? "승인 대기" : (draftReq(body) ? "승인 요청 전" : "해당 없음"),
+         req ? "var(--amber)" : (draftReq(body) ? "var(--blue)" : "var(--ink-2)"))));
   if (req) out.append(h("div", { class: "notice info" }, `개정 초안이 승인함에 올라갔습니다 (${req}). `,
     h("button", { class: "btn", style: "height: 36px; margin-left: 8px", onclick: () => { activeReq = req; showTab("review"); } }, "승인함에서 검토")));
+  // (추가 2026-11-12) 개정 초안이면 승인 요청 여부를 물음
+  const draft = draftReq(body);
+  if (draft) out.append(requestBox(draft, q));
   if (products.length) {
     out.append(h("div", { class: "card" }, h("h2", {}, "제품별 고칠 항목"),
       h("div", { class: "scroll" }, h("table", {},
@@ -353,8 +387,13 @@ async function send() {
   stop(); $("#send").disabled = false;
   if (!r.ok) { slot.append(errorBox(r.error)); return; }
   const req = pendingReq(r.body); addPending(req, q, r.body);
+  // (기존 코드) 승인 대기 건이면 '승인함에 추가했습니다'만 표시 — 개정 초안이면 승인 요청 여부를 묻는 상자 추가 (2026-11-12)
+  // slot.append(h("div", { class: "card" }, h("div", { class: "answer" }, r.body.answer),
+  //   req ? h("div", { class: "notice info", style: "margin-top: 10px" }, `승인함에 추가했습니다 (${req}).`) : null));
+  const draft = draftReq(r.body);
   slot.append(h("div", { class: "card" }, h("div", { class: "answer" }, r.body.answer),
-    req ? h("div", { class: "notice info", style: "margin-top: 10px" }, `승인함에 추가했습니다 (${req}).`) : null));
+    req ? h("div", { class: "notice info", style: "margin-top: 10px" }, `승인함에 추가했습니다 (${req}).`) : null,
+    draft ? requestBox(draft, q) : null));
   const cv = contextsView(r.body.contexts); if (cv) slot.append(h("div", { style: "margin-top: 8px" }, cv));
   slot.append(h("div", { style: "margin-top: 8px" }, traceView(r.body.trace)));
   slot.scrollIntoView({ behavior: "smooth", block: "start" });

@@ -49,6 +49,18 @@ def steps(resp):
     return [t["step"] for t in resp["trace"]]
 
 
+# (추가 2026-11-12) 개정 초안은 바로 승인 대기가 되지 않고 '승인 요청 REQ-xxxx'를 보내야 승인 대기로 올라갑니다.
+def draft_of(resp):
+    return next(t["input"] for t in resp["trace"] if t["step"] == "approval_draft")
+
+
+def submit(question, g):
+    """질문 → 개정 초안 → '승인 요청' 까지 진행. (첫 답변, 승인 요청 답변, 요청 번호)"""
+    first = A.run_query(question, g)
+    req = draft_of(first)
+    return first, A.run_query(f"승인 요청 {req}", g), req
+
+
 # ---------------------------------------------------------------- 경로별
 def test_blocked_question_skips_llm():
     b = FakeBrains("regulation")
@@ -113,14 +125,31 @@ def test_revision_pending_then_approve():
     msgs = tool_turn("assess_update", {"update_id": "U-02"}, tools.assess_update("U-02"), "c1") + [AIMessage("정리")]
     b = FakeBrains("revision", msgs, judgment_u02())
     g = graph(b)
-    r = A.run_query("U-02 배합 변경 후 P-002 MSDS를 다시 제출해야 하나요?", g)
-    req = next(t["input"] for t in r["trace"] if t["step"] == "hitl_interrupt")
+    # (기존 코드) 질문하자마자 승인 대기 — 먼저 승인 요청 여부를 묻는 흐름으로 바뀌어 교체 (2026-11-12)
+    # r = A.run_query("U-02 배합 변경 후 P-002 MSDS를 다시 제출해야 하나요?", g)
+    # req = next(t["input"] for t in r["trace"] if t["step"] == "hitl_interrupt")
+    # assert req.startswith("REQ-")
+    # assert "결론: 예, 공단 재제출 대상입니다." in r["answer"]
+    # assert "톨루엔 10~20% → 25~35%" in r["answer"] and "지체 없이 공단에 제출" in r["answer"]
+    # assert f"승인 대기 상태입니다 ({req})" in r["answer"]
+    # assert {"law:산안법시행규칙:159", "msds:P-002"} <= {c["doc_id"] for c in r["contexts"]}
+    # assert steps(r)[-3:] == ["revision_judgment", "hitl_interrupt", "output_guard"]
+    first = A.run_query("U-02 배합 변경 후 P-002 MSDS를 다시 제출해야 하나요?", g)
+    req = draft_of(first)
     assert req.startswith("REQ-")
-    assert "결론: 예, 공단 재제출 대상입니다." in r["answer"]
-    assert "톨루엔 10~20% → 25~35%" in r["answer"] and "지체 없이 공단에 제출" in r["answer"]
+    assert "결론: 예, 공단 재제출 대상입니다." in first["answer"]
+    assert "톨루엔 10~20% → 25~35%" in first["answer"] and "지체 없이 공단에 제출" in first["answer"]
+    assert f"승인 요청을 올릴까요? 올리려면 '승인 요청 {req}'" in first["answer"]
+    assert "hitl_interrupt" not in steps(first)                           # 아직 승인 대기 아님
+    assert steps(first)[-3:] == ["revision_judgment", "approval_draft", "output_guard"]
+    assert "아직 승인 요청 전" in A.run_query(f"승인 {req}", g)["answer"]    # 요청 전에는 승인 불가
+
+    r = A.run_query(f"승인 요청 {req}", g)
+    assert r["answer"].startswith(f"{req} 승인 요청을 올렸습니다")
     assert f"승인 대기 상태입니다 ({req})" in r["answer"]
     assert {"law:산안법시행규칙:159", "msds:P-002"} <= {c["doc_id"] for c in r["contexts"]}
-    assert steps(r)[-3:] == ["revision_judgment", "hitl_interrupt", "output_guard"]
+    assert steps(r)[-3:] == ["approval_request", "hitl_interrupt", "output_guard"]
+    assert "이미 승인 요청된 건" in A.run_query(f"승인 요청 {req}", g)["answer"]
 
     done = A.run_query(f"승인 {req}", g)
     assert done["answer"].startswith(f"{req} 승인 완료")
@@ -136,8 +165,9 @@ def test_revision_pending_then_approve():
 
 def test_revision_reject_requires_reason():
     g = graph(FakeBrains("revision", [AIMessage("정리")], judgment_u02()))
-    r = A.run_query("U-02 반영하려면?", g)
-    req = next(t["input"] for t in r["trace"] if t["step"] == "hitl_interrupt")
+    # (기존 코드) r = A.run_query("U-02 반영하려면?", g)
+    # req = next(t["input"] for t in r["trace"] if t["step"] == "hitl_interrupt")
+    _, _, req = submit("U-02 반영하려면?", g)
     assert "사유를 함께" in A.run_query(f"반려 {req}", g)["answer"]
     rej = A.run_query(f"반려 {req.lower()} 함유량을 시험성적서와 다시 맞춰 주세요", g)
     assert rej["answer"] == f"{req} 반려: 개정 초안을 확정하지 않았습니다. 사유: 함유량을 시험성적서와 다시 맞춰 주세요"
@@ -158,8 +188,9 @@ def test_unknown_request_id():
 def test_sqlite_checkpoint_survives_restart(tmp_path):
     db = tmp_path / "cp.sqlite"
     b = FakeBrains("revision", [AIMessage("정리")], judgment_u02())
-    r = A.run_query("U-02 반영하려면?", A.build_graph(b, checkpointer=A.sqlite_checkpointer(db)))
-    req = next(t["input"] for t in r["trace"] if t["step"] == "hitl_interrupt")
+    # (기존 코드) r = A.run_query("U-02 반영하려면?", A.build_graph(b, checkpointer=A.sqlite_checkpointer(db)))
+    # req = next(t["input"] for t in r["trace"] if t["step"] == "hitl_interrupt")
+    _, _, req = submit("U-02 반영하려면?", A.build_graph(b, checkpointer=A.sqlite_checkpointer(db)))
     # 서버 재시작: 새 그래프 + 새 연결
     g2 = A.build_graph(FakeBrains("revision"), checkpointer=A.sqlite_checkpointer(db))
     assert A.run_query(f"승인 {req}", g2)["answer"].startswith(f"{req} 승인 완료")

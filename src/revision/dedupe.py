@@ -67,6 +67,38 @@ def find_pending_duplicate(graph, req_id: str, question: str, judgment: dict | N
     return None
 
 
+def applied_requests() -> dict[str, str]:
+    """승인되어 제품 MSDS에 실제로 반영된 요청 {요청 번호: 승인일} — 반영 기록(revision_log.json) 기준.
+
+    MSDS를 원래 데이터로 되돌리면(평가 전 자동 원복, ./run.sh reset-msds) 반영 기록도 지워지므로,
+    되돌린 뒤에는 같은 변경을 다시 승인 요청할 수 있습니다.
+    """
+    from src.revision import msds_apply
+
+    if not msds_apply.LOG_PATH.exists():
+        return {}
+    try:
+        log = json.loads(msds_apply.LOG_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return {e["req_id"]: e.get("date", "") for e in log if e.get("req_id")}
+
+
+def find_approved_duplicate(graph, req_id: str, question: str, judgment: dict | None) -> tuple[str, str] | None:
+    """(추가 2026-11-12) req_id 와 같은 변경이 이미 승인되어 MSDS에 반영돼 있으면 (그 요청 번호, 승인일)."""
+    applied = applied_requests()
+    if not applied:
+        return None
+    sig = signature(question, judgment)
+    for rid, day in applied.items():
+        if rid == req_id:
+            continue
+        v = graph.get_state({"configurable": {"thread_id": rid}}).values
+        if v and signature(v.get("question", ""), v.get("judgment")) == sig:
+            return rid, day
+    return None
+
+
 def close_as_duplicate(graph, req_id: str, kept_id: str) -> None:
     """승인 대기 건을 '중복 요청' 사유로 반려 처리합니다(MSDS 변경 없음, 기록은 체크포인트에 남음)."""
     graph.invoke(Command(resume={"decision": "reject", "reason": f"{DUP_PREFIX}: {kept_id}와 같은 변경", "inputs": {}}),

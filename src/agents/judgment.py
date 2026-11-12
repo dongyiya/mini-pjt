@@ -54,7 +54,9 @@ def sanitize_judgment(j: RevisionJudgment, messages: list[BaseMessage]) -> tuple
 
 
 # ---------------------------------------------------------------- 답변 문구
-def format_judgment(j: RevisionJudgment, req_id: str, pending: bool) -> str:
+# (기존 코드) def format_judgment(j: RevisionJudgment, req_id: str, pending: bool) -> str:
+#   — 바로 승인 대기로 올리지 않고 먼저 승인 요청 여부를 묻는 안내(ask_request)를 추가 (2026-11-12)
+def format_judgment(j: RevisionJudgment, req_id: str, pending: bool, ask_request: bool = False) -> str:
     if not j.revision_needed:
         return "결론: 고쳐야 할 MSDS가 없습니다.\n\n판단 근거\n" + "\n".join(f"- {r}" for r in j.reasons)
     resub = [p for p in j.products if p.resubmission_required]
@@ -69,6 +71,10 @@ def format_judgment(j: RevisionJudgment, req_id: str, pending: bool) -> str:
     if resub:
         lines += ["", "재제출 대상 제품은 변경사항을 반영한 MSDS를 지체 없이 공단에 제출해야 합니다(시행규칙 제159조제2항)."]
     lines += ["", "개정 초안", j.draft]
+    if ask_request:
+        lines += ["", f"개정 초안을 만들었습니다(초안 번호 {req_id}). 확정·제출은 담당자 승인 후에만 진행합니다.",
+                  f"담당자 승인 요청을 올릴까요? 올리려면 '승인 요청 {req_id}'를 보내 주세요(화면에서는 '승인 요청하기' 버튼)."]
+        return "\n".join(lines)
     if pending:
         lines += ["", f"개정 초안은 담당자 승인 대기 상태입니다 ({req_id}). 확정·제출은 승인 후에만 진행합니다.",
                   f"승인하려면 '승인 {req_id}', 반려하려면 '반려 {req_id} 사유'를 보내 주세요."]

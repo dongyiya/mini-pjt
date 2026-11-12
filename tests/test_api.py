@@ -41,8 +41,14 @@ def test_query_and_approval_flow(client):
     assert r.status_code == 200
     body = r.json()
     check_spec(body)
-    req = next(t["input"] for t in body["trace"] if t["step"] == "hitl_interrupt")
-    assert f"승인 대기 상태입니다 ({req})" in body["answer"]
+    # (기존 코드) 질문하자마자 승인 대기 — '승인 요청 REQ-xxxx'를 보내야 승인 대기가 되도록 바뀌어 교체 (2026-11-12)
+    # req = next(t["input"] for t in body["trace"] if t["step"] == "hitl_interrupt")
+    # assert f"승인 대기 상태입니다 ({req})" in body["answer"]
+    req = next(t["input"] for t in body["trace"] if t["step"] == "approval_draft")
+    assert f"'승인 요청 {req}'" in body["answer"]
+    asked = client.post("/query", json={"question": f"승인 요청 {req}"}).json()
+    check_spec(asked)
+    assert f"승인 대기 상태입니다 ({req})" in asked["answer"]
 
     r2 = client.post("/query", json={"question": f"승인 {req}"})
     check_spec(r2.json())
