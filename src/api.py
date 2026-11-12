@@ -54,3 +54,40 @@ def query(req: QueryRequest):
         body = QueryResponse(answer="처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.", contexts=[],
                              trace=[{"step": "error", "input": req.question, "output": type(e).__name__}])
         return UTF8JSONResponse(status_code=500, content=body.model_dump())
+
+
+# --- 사용자 화면 (2026-11-12 추가) -----------------------------------------------------------
+# GET /  → src/static/index.html. 화면의 모든 버튼은 POST /query 만 호출합니다(API Spec 그대로).
+# 변경 사건·제품 목록과 법령 기준일은 화면을 열 때 데이터 파일에서 읽어 HTML 에 넣어 보냅니다(별도 API 없음).
+import json as _json
+from pathlib import Path as _Path
+
+from fastapi.responses import HTMLResponse
+
+from src import retriever as _retriever
+from src import tools as _tools
+from src.config import LAW_DIR as _LAW_DIR
+
+_UI = _Path(__file__).resolve().parent / "static" / "index.html"
+
+
+def _law_versions() -> list[dict]:
+    out = []
+    for p in sorted(_LAW_DIR.glob("*.md")):
+        meta = _retriever._parse_front(p.read_text(encoding="utf-8"))
+        out.append({k: meta.get(k, "") for k in ("law", "status", "effective", "collected")})
+    return out
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def ui() -> HTMLResponse:
+    from src.revision_preview import build_ui_data
+
+    laws = _law_versions()
+    # (기존 코드) 변경 사건·제품 목록만 전달 — 대시보드·MSDS 조회·변경 전후 비교 데이터를 추가하며 교체
+    # boot = {"updates": _tools.list_regulation_updates(), "products": _tools.list_products(), "laws": laws,
+    #         "lawsAsOf": max((x["collected"] for x in laws if x["collected"]), default="")}
+    boot = {**build_ui_data(), "laws": laws,
+            "lawsAsOf": max((x["collected"] for x in laws if x["collected"]), default="")}
+    data = _json.dumps(boot, ensure_ascii=False).replace("</", "<\/")
+    return HTMLResponse(_UI.read_text(encoding="utf-8").replace("/*__BOOT__*/null", data))

@@ -5,3 +5,6 @@ __pycache__/
 # 검색 인덱스(build_index.py가 생성)와 HITL 체크포인트 DB
 index/
 *.sqlite
+# SQLite 실행 중 임시 파일(WAL)
+*.sqlite-shm
+*.sqlite-wal

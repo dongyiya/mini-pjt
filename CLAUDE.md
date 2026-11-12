@@ -10,11 +10,18 @@ mini-pjt 프로젝트에서 Claude와 함께 작업할 때 지키는 규칙입�
 ## 폴더 구조
 
 ```
-src/          소스코드 (agent.py: 에이전트 그래프, tools.py: 도메인 도구, retriever.py: RAG)
-data/         사용한 문서·데이터
-evaluation/   평가셋(test_queries.csv)과 자체 평가 결과(round1/round2_report.md)
+src/          소스코드 (agent.py: 에이전트 그래프, tools.py: 도메인 도구, retriever.py: RAG,
+              api.py: FastAPI 서버, guardrails.py, mcp_server.py·mcp_client.py, law_refresh.py,
+              revision_preview.py: 화면용 데이터, static/index.html: 화면)
+scripts/      데이터 수집(collect_data.py: 법령, collect_substances.py: 물질)·인덱스 생성(build_index.py)
+data/         사용한 문서·데이터 (laws/<법령>@<시행일>.md, msds/, substances/, regulation_updates.json)
+evaluation/   평가셋(test_queries.csv), 평가 스크립트(run_eval.py), 결과(results/, round1/round2_report.md)
+tests/        단위 테스트
+docs/         사용자 매뉴얼
+index/        검색 인덱스 (build_index.py가 생성, 커밋 제외)
 SERVICE.md    서비스 스펙
 README.md     프로젝트 설명
+HANDOFF.md    진행 현황과 다음 작업
 ```
 
 ## 작업 규칙

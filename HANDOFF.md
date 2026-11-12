@@ -2,7 +2,8 @@
 
 > 이 문서는 작업 인계용입니다. **CLAUDE.md의 규칙이 이 문서보다 우선합니다.** 충돌하면 CLAUDE.md를 따릅니다.
 
-- 마지막 갱신: 2026-11-12 (시행일 기준 조문 선택 요구사항 추가)
+- 마지막 갱신: 2026-11-12 저녁 (2일차 구현·UI·문서 정리 반영)
+- **지금 상태 한 줄 요약**: 백엔드(에이전트·RAG·MCP·HITL·API)와 화면(탭 4개)까지 구현 완료. 1차 평가 18/20. 남은 일은 Bedrock 일일 토큰 한도 때문에 못 돌린 **2차 평가와 RAGAS 재계산** → [evaluation/round2_report.md](evaluation/round2_report.md)
 
 ## 저장소 상태
 
@@ -10,8 +11,8 @@
 |---|---|
 | 원격 저장소 | `origin` = https://github.com/dongyiya/mini-pjt.git |
 | 브랜치 | 작업 브랜치는 **`master`** (2026-11-11 변경). GitHub 기본 브랜치도 `master`. 기존 `feat/msds-agent`는 로컬·원격 모두 삭제함(커밋은 모두 `master`에 포함) |
-| 최신 커밋 | `64ec12d` HANDOFF 정리 |
-| 커밋 이력 | `0574139` 1일차: 서비스 스펙, 평가셋, 데이터·도구 뼈대 → `a3e6705` 계획 보강: 데이터·도구 범위, 일정·검증 절차, 법령 근거 규칙 → `64ec12d` HANDOFF 정리 |
+| 최신 커밋 | `8f9960d` 사용자 매뉴얼 추가, API 응답 charset=utf-8 명시 (이후 화면·문서 정리는 아직 커밋 전일 수 있음 → `git status` 확인) |
+| 커밋 이력 | `0574139` 1일차: 서비스 스펙, 평가셋, 데이터·도구 뼈대 → `a3e6705` 계획 보강 → `64ec12d` HANDOFF 정리 → `3c00663` 2일차: 에이전트 그래프·RAG·MCP·HITL·평가, 법령 수동 갱신 → `8f9960d` 사용자 매뉴얼, charset 수정. 원격(origin)에는 아직 push 안 함 |
 | Git 설정 | 이 저장소에만 `user.name=dongyiya`, `user.email=dongyiya@empal.com` |
 | 커밋 제외 | `.archify/`(주제 검토 페이지), `index/`, `*.sqlite` (`.gitignore`). `.env`는 상위 폴더에 있어 저장소 밖 |
 
@@ -21,17 +22,19 @@
 |---|---|
 | 주제 | 규제·배합 변경 시 MSDS 개정 필요 여부를 판정하고 개정 초안을 만드는 에이전트 |
 | 대상 MSDS | 가상 제품 6개(`data/msds/products.json`) + 안전보건공단 공개 단일물질 MSDS 15종 안팎 (`data/substances/*.json` 스냅샷: CAS, GHS 분류, 15번 규제현황. 톨루엔·벤젠·포름알데히드·메탄올 등 가상 제품 성분 우선) |
-| 법 범위 | 산업안전보건법(법·시행령·시행규칙·MSDS 고시) + 화학물질관리법. 수집 목표 조문: 산안법 제110~116조, 시행규칙 제156~170조, MSDS 고시 주요 조항, 화관법 정의·유해화학물질 조항 (현재 `data/laws`에는 산안법 제110·111·114조, 시행규칙 제156·159조, 화관법 제2조만 있음). 조문을 늘리면 평가셋도 그에 맞춰 보강 |
-| LLM | AWS Bedrock `us.anthropic.claude-sonnet-4-6` (환경변수 `BEDROCK_MODEL_ID`, 상위 `.env`에 설정됨) |
-| 임베딩 | Bedrock Titan Text Embeddings v2 (예정) |
+| 법 범위 | 산업안전보건법(법·시행령·시행규칙·MSDS 고시) + 화학물질관리법. **수집 완료**: 산안법 제110~116조(8개), 시행규칙 제156~170조(15개), 화관법 제2조 — 현행 판, `data/laws/<법령>@<시행일>.md`. **미수집**: 시행령, MSDS 고시, 화관법 유해화학물질 세부 조항. 조문을 늘리면 평가셋도 그에 맞춰 보강 |
+| LLM | AWS Bedrock `global.anthropic.claude-sonnet-4-6` (2026-11-12 사용자가 `us.`→`global.`로 변경. 환경변수 `BEDROCK_MODEL_ID`, 상위 `.env`) |
+| 임베딩 | Bedrock Titan Text Embeddings v2 (`amazon.titan-embed-text-v2:0`, 1024차원) 사용 중 |
 | 트레이스 | LangSmith |
 | Python·개발 도구 | **기존에 설치된 환경을 사용**: 상위 폴더의 `.venv`(Python 3.14.8). 새 가상환경·`pyproject.toml`·uv 잠금 파일은 만들지 않음 (2026-11-11 결정) |
 | 환경 변수 | **기존 상위 폴더 `.env`를 사용** (`sds-ax-practice/.env`). 프로젝트에 새 `.env`를 만들지 않음 |
 | Docker | 베이스 이미지 `python:3.14-slim` (로컬 `.venv`와 버전을 맞춤). 설치 문제가 생기면 로컬과 Docker 버전을 함께 바꿈 |
 | 평가 정답 | 사용자가 도메인 경험이 거의 없으므로 **공개 원문에 적힌 사실**로만 작성 |
-| UI (2026-11-12 확정) | 시안 그대로 개발. 탭 3개 **영향 분석 → 어시스턴트 → 승인함**(대기 건수 배지). 영향 분석·어시스턴트에서 "초안 만들기"를 누르면 승인함에 REQ가 생기고, 승인·반려(사유 필수)는 `/query`에 "승인/반려 REQ-xxxx"로 보냄. 근거 조문 카드는 세 탭이 같이 쓰고 "현행 / 시행 예정" 배지를 붙임. 시안: claude.ai 캔버스 "MSDS 개정 에이전트 UI 시안"(통합 탭 아트보드가 기준, 비공개 링크) |
+| UI (2026-11-12 확정·구현) | 시안(claude.ai 캔버스 "MSDS 개정 에이전트 UI 시안", 통합 탭 아트보드)을 바탕으로 **실제 화면 구현** (`src/static/index.html`, `GET /`). 사용자 요청으로 탭 4개: **영향 분석 대시보드 → 제품 MSDS → 어시스턴트 → 승인함**(대기 건수 배지). 모든 버튼은 `POST /query`만 사용. 승인·반려(사유 필수)는 "승인/반려 REQ-xxxx". 근거 카드에 "현행 법령 / 시행 예정" 배지 |
+| 법령 갱신 방식 (2026-11-12) | 새 엔드포인트 없이 `/query`에 "법령 갱신" 명령. 자동 주기 수집 없음(수동 버튼만) |
+| 테스트 (2026-11-12 결정) | 사용자 지시로 **이후 단위 테스트는 실행하지 않음**(다시 요청하기 전까지). 마지막 실행 결과: 단위 133개 통과 |
 
-## 완료된 것 (1일차 범위)
+## 완료된 것 (1일차 기록 — 이후 많이 바뀜, 현재 상태는 아래 '진행 기록' 참고)
 
 | 파일 | 내용 |
 |---|---|
@@ -50,19 +53,23 @@
 - 검색 1순위 정확도: 기대 문서가 있는 13건 중 9건 (F-01, F-03, F-04, F-06이 1순위 실패) → 2일차 검색 개선 대상
 
 ### 확인이 필요한 점
-- 산안법 조문은 국가법령정보센터 기본 화면의 **2027. 4. 28. 시행 판**입니다. 현재 시행 판과 제110·111·114조 문구가 같은지 확인합니다.
+- ~~산안법 조문은 국가법령정보센터 기본 화면의 **2027. 4. 28. 시행 판**입니다. 현재 시행 판과 제110·111·114조 문구가 같은지 확인합니다.~~ → 해결(2026-11-12): 현행 판(2026. 10. 27. 시행)을 받았고, 시행예정 판들의 대상 조문 내용이 현행과 같음을 확인
+- `MSDS_Revision_SOP.md`의 조문 번호·기한은 수집한 원문과 대조해 [원문 확인] / [확인 필요]로 표시함(2026-11-12)
 - U-01처럼 15번(법적 규제현황)만 바뀐 경우를 "개정 검토 필요, 시행규칙 제159조제1항 재제출 대상 아님"으로 판정합니다. 조문 문구를 그대로 적용한 것이며 실무 해석은 확인이 필요합니다.
 
 ## 실행 방법 (현재)
 
-```bash
-python -m src.tools                      # U-01 영향 판정 출력
-python -m src.retriever                  # 검색 예시
-python -m src.pipeline "U-02 반영하려면?"   # API 모양 응답 출력
-```
-Windows에서 한글이 깨지면 먼저 `set PYTHONIOENCODING=utf-8`(cmd) 또는 `$env:PYTHONIOENCODING="utf-8"`(PowerShell)을 실행합니다.
+`mini-pjt` 폴더, Git Bash 기준 (자세한 것은 [README.md](README.md), 사용자용은 [docs/사용자_매뉴얼.md](docs/사용자_매뉴얼.md)).
 
-## 아키텍처 목표 (LangGraph)
+```bash
+./run.sh setup                                   # 법령·물질 수집 + 검색 인덱스
+./run.sh serve                                   # 화면 http://localhost:8000/ , API POST /query, 테스트 화면 /docs
+../.venv/Scripts/python -m scripts.try_agent "질문"   # 서버 없이 실제 LLM으로 질문 1건 (토큰 사용)
+../.venv/Scripts/python -m evaluation.run_eval --round 2   # 평가 (토큰 많이 사용)
+```
+Windows에서 한글이 깨지면 먼저 `set PYTHONIOENCODING=utf-8`(cmd) 또는 `$env:PYTHONIOENCODING="utf-8"`(PowerShell)을 실행합니다. 1일차 규칙 기반 스케치 `src/pipeline.py`는 기준선으로 남겨 둠(현재 API는 쓰지 않음).
+
+## 아키텍처 (구현됨 — 다이어그램: `.archify/architecture-msds-agent-20261112-100931/msds-agent.html`, 커밋 제외 폴더)
 
 ```
 POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 RAG + 법령 API)
@@ -73,25 +80,25 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 - HITL은 **엔드포인트를 추가하지 않고** 같은 `/query`로 처리합니다. 초안이 나오면 answer에 "승인 대기 REQ-xxxx"를 돌려주고, `{"question": "승인 REQ-xxxx"}` 또는 `"반려 REQ-xxxx 사유"`로 재개합니다(SqliteSaver, thread_id=REQ-xxxx).
 - 모든 노드는 응답 `trace`에 `{step, input, output}`를 쌓습니다. LangSmith에도 같은 run이 기록됩니다. 평가에서 `expected_tools`는 이 trace에 남은 도구 호출로 확인합니다.
 
-## 패턴 → 구현 위치 (목표 10개)
+## 패턴 → 구현 위치 (11개 적용, 10번 제외)
 
 | # | 패턴 | 위치 |
 |---|---|---|
-| 1 | LCEL 구조화 출력 (필수) | `src/schemas.py` `RevisionJudgment{revision_needed, sections, reasons, legal_basis, draft}`. `legal_basis`는 근거 조문의 doc_id 목록(예: `law:산안법시행규칙:159`) |
-| 2 | ReAct | 서브 에이전트마다 `create_react_agent`(bind_tools)로 생성 |
-| 3 | RAG (필수) | BM25(kiwipiepy) + FAISS(Titan v2) 앙상블, 물질명↔CAS 쿼리 확장, 리랭킹(Bedrock Rerank를 쓸 수 있으면 사용, 안 되면 LLM 리랭크) |
-| 4 | 도구 다중 | `src/tools.py` 기존 7개 + 추가 예정 `search_law`(법령 검색을 도구로 감쌈), `get_substance(cas)`(단일물질 MSDS 조회), `classify_mixture`(GHS 혼합물 분류 계산) |
-| 5 | MCP | `src/mcp_server.py`로 MSDS DB 조회를 노출하고, 에이전트는 MCP 클라이언트로 호출 |
-| 6 | 가드레일 | `src/guardrails.py` (현재 `pipeline.py`의 정규식을 옮겨 확장): 영업비밀 성분명·함유량 마스킹, 담당자 연락처 마스킹, 프롬프트 인젝션·범위 밖 질문 차단 |
-| 7 | HITL | revision_agent `interrupt()` |
-| 8 | 미들웨어 | API 재시도(tenacity), 긴 조문 요약 |
-| 9 | Supervisor | `src/agent.py` |
-| 11 | Trace (필수) | LangSmith + 응답 `trace` |
-| 12 | 평가 (필수) | `evaluation/run_eval.py` RAGAS 4지표 + LLM-as-Judge |
+| 1 | LCEL 구조화 출력 (필수) | `src/schemas.py` `Route`, `RevisionJudgment{revision_needed, products[{product_id, sections, changes, resubmission_required}], reasons, legal_basis, draft}`. `src/agent.py` 라우터·판정 체인 `prompt | model.with_structured_output(...)` |
+| 2 | ReAct | 서브 에이전트 3개를 `langchain.agents.create_agent`(bind_tools)로 생성 (계획의 `create_react_agent`는 langgraph 1.x에서 이것으로 대체) |
+| 3 | RAG (필수) | `src/retriever.py` BM25(kiwipiepy) + FAISS(Titan v2) RRF, 쿼리 확장(용어·성분명↔CAS), **LLM 리랭크**(Bedrock Rerank 대신), 시행일 기준 판 선택 |
+| 4 | 도구 다중 | `src/tools.py` 11개 |
+| 5 | MCP | `src/mcp_server.py`(FastMCP stdio, MSDS DB 도구 6개) + `src/mcp_client.py` 브리지 |
+| 6 | 가드레일 | `src/guardrails.py` 입력 차단(인젝션·승인 우회·영업비밀·범위 밖), 출력 마스킹(연락처·영업비밀 실명) |
+| 7 | HITL | `src/agent.py` approval 노드 `interrupt()` + SqliteSaver |
+| 8 | 미들웨어 | LLM `with_retry`, 수집 스크립트 tenacity 재시도, 도구 결과 마스킹 (긴 조문 요약은 미구현) |
+| 9 | Supervisor | `src/agent.py` supervisor 노드 |
+| 11 | Trace (필수) | 응답 `trace` + LangSmith `mini-pjt` |
+| 12 | 평가 (필수) | `evaluation/run_eval.py` LLM-as-Judge + RAGAS 4지표 |
 
 10번(장기 메모리)은 시간이 남으면 제품 목록과 이전 판정 이력을 LangGraph Store에 저장하는 방식으로 추가합니다.
 
-## 다음 작업 (2일차~)
+## 다음 작업 (2일차 계획 — 1~8번 모두 완료, 7번의 2차 평가만 남음)
 
 1. 의존성 정리: 실제로 쓰는 패키지만 `requirements.txt`에 적고 기존 `.venv`(Python 3.14)에 설치합니다. 필요한 환경 변수 이름은 README에 정리합니다. 3.14에서 설치가 안 되는 패키지가 나오면 그때 대안을 정합니다. (`pyproject.toml`·uv·`.env.example`은 만들지 않기로 결정)
 2. 데이터 보강: `scripts/collect_data.py`(국가법령정보센터·안전보건공단 API로 법령 조문과 단일물질 MSDS를 수집해 `data/`에 스냅샷 저장, 키가 없거나 호출이 실패하면 저장된 스냅샷 사용), `scripts/build_index.py`(BM25·FAISS 검색 인덱스 생성)
@@ -106,7 +113,7 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 
 ## 진행 기록 (2026-11-12, 2일차)
 
-테스트: `../.venv/Scripts/python -m pytest` (단위 31개), `-m live` (실제 API 3개). 모두 통과.
+테스트: `../.venv/Scripts/python -m pytest` (단위 133개), `-m live` (실제 API 4개). 마지막 실행 때 모두 통과. 이후 사용자 지시로 단위 테스트는 실행하지 않음(화면·문서 정리 작업은 테스트 미실행).
 
 | 단계 | 결과 |
 |---|---|
@@ -127,14 +134,19 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 | 모델 변경 (2026-11-12) | 사용자가 `.env`의 `BEDROCK_MODEL_ID`를 `global.anthropic.claude-sonnet-4-6`으로 변경. 호출 정상, 단위 132개·live 4개 통과(live 3분 27초로 이전보다 느림). 2차 평가 도중 다시 일일 토큰 한도 초과로 중단(1·2번이 빈 답으로 실패, 채점 단계 중단) → 결과 미저장. 같은 계정 한도를 공유하는 것으로 보임 |
 | 사용자 매뉴얼 | `docs/사용자_매뉴얼.md` (EHS 담당자 대상: 질문 예시, 승인·반려, 기준일, 법령 가져오기, 답변 읽는 법, 거절 요청, 문제 해결, 서버 켜기 부록). PowerShell 예시 실제 확인 |
 | API 수정 | 응답 Content-Type 에 `charset=utf-8` 명시(`UTF8JSONResponse`) — Windows PowerShell 5.1 Invoke-RestMethod 한글 깨짐 수정. 응답 필드 구조는 그대로 |
+| 실제 화면 (UI) | `src/static/index.html` + `src/api.py` `GET /`(화면을 열 때 데이터 파일에서 읽은 목록을 HTML에 넣어 보냄, 새 API 없음). 영향 분석 표가 판정 JSON을 끝까지 읽도록 trace `revision_judgment` 출력 길이 제한을 20000자로 늘림 |
+| 대시보드·MSDS 조회·변경 전후 | (사용자 요청) 영향 분석 탭을 규칙 기반 대시보드(`assess_update`, AI 없이 즉시 표시)로, '제품 MSDS' 탭 추가(마스킹된 MSDS + 공단 물질 정보), 승인함에 현재 → 변경 후 MSDS 비교. `src/revision_preview.py`가 변경 작업(op)을 만들고 화면이 적용. U-02~U-04에 구조화된 `changes` 추가(U-04 새 제품명은 '알코-와이프 프로 E-70', 기존 '(세정용 에탄올)' 표기 빠짐). U-01은 '유독물질' 표기 삭제 + 대체 표기 '확인 필요'(공단 자료 참고값 표시). 브라우저 자동 확인 도구가 없어 화면은 가짜 DOM 실행으로만 확인 |
+| 문서 정리 (2026-11-12) | README 작성, SERVICE.md 3절(도구·데이터·화면) 현행화, CLAUDE.md 폴더 구조, round2_report.md(미실시 사유·확인할 개선), SOP 원문 대조 표시, 매뉴얼 응답 시간 |
 | 수집 주기 (2026-11-12 결정) | **수동 버튼만** 사용. 자동 주기 수집은 두지 않음. 법령 개정 시 UI '법령 가져오기'(= `/query` "법령 갱신") 또는 `./run.sh setup` |
-| 남은 일 | 16·17번 개선 코드 반영 완료(판정 사후 검증 `sanitize_judgment`, impact 프롬프트) → 한도 풀리면 1차 RAGAS 재계산, 2차 평가 보고서, README 작성 |
+| 남은 일 | 16·17번 개선 코드 반영 완료(판정 사후 검증 `sanitize_judgment`, impact 프롬프트) → 한도 풀리면 ① 2차 평가 ② 1차 RAGAS 재계산 ③ README의 RAGAS·통과율 갱신. 그 밖: 응답 시간(15초 초과 3/20), Docker 빌드 검증, 시행령·고시 수집, 원격 push |
 
 ## 시행일 기준 조문 선택 (2026-11-12 요청)
 
 질문 기준일과 법령 시행일을 비교해 그날 적용되는 조문을 고르고, 아직 시행 전인 예정 법령은 따로 표시합니다.
 
-**왜 필요한가**: 지금 `data/laws/산업안전보건법.md`는 `[시행 2027. 4. 28.]` 판입니다. 2026-11-12 기준으로는 **시행 예정** 판이라, 현행 판 없이 이것만 쓰면 아직 효력이 없는 조문을 현행처럼 답하게 됩니다. (시행규칙은 2026. 8. 1., 화관법은 2026. 10. 8. 시행으로 현행 판)
+**구현 완료 (2026-11-12)**: 아래 표의 데이터·인덱스·기준일·선택 규칙·응답·doc_id(`@시행일`)·trace(`select_law_version`)·UI 배지를 모두 반영. 평가셋 edge 질문 추가만 남음.
+
+**왜 필요했나**: 당시 `data/laws/산업안전보건법.md`는 `[시행 2027. 4. 28.]` 판이었습니다. 2026-11-12 기준으로는 **시행 예정** 판이라, 현행 판 없이 이것만 쓰면 아직 효력이 없는 조문을 현행처럼 답하게 됩니다. (시행규칙은 2026. 8. 1., 화관법은 2026. 10. 8. 시행으로 현행 판)
 
 | 단계 | 반영 내용 | 관련 작업 |
 |---|---|---|
@@ -161,13 +173,13 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 
 `mini-pjt` 폴더에서 기존 `.venv`의 Python으로 실행합니다. Windows Git Bash 기준입니다.
 
-1. 데이터·인덱스: `../.venv/Scripts/python scripts/collect_data.py && ../.venv/Scripts/python scripts/build_index.py` → 인덱스 폴더가 생성되는지 확인
-2. API: `../.venv/Scripts/python -m uvicorn src.api:app` 실행 후
-   `curl -X POST localhost:8000/query -H "Content-Type: application/json" -d '{"question":"..."}'` → 응답 필드 `answer`, `contexts`, `trace`의 이름과 구조가 [API Spec.md](API%20Spec.md)와 같은지 확인
-3. 승인 흐름: 개정 질문 → "승인 대기 REQ-x" → `{"question": "승인 REQ-x"}` → 확정 초안 반환
-4. LangSmith: `mini-pjt` 프로젝트에서 run과 step이 보이는지 확인
-5. 평가: `../.venv/Scripts/python evaluation/run_eval.py --round 1` → 통과율과 RAGAS 지표 출력, 보고서 생성
-6. 클린 환경: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.env msds-agent` (`.env`는 상위 폴더에 있음)
+1. 데이터·인덱스: `./run.sh setup` (= `python -m scripts.collect_data`, `python -m scripts.collect_substances`, `python -m scripts.build_index`) → `data/laws`, `data/substances`, `index/` 생성 확인 ✅ 2026-11-12
+2. API: `./run.sh serve` 후 `curl -X POST localhost:8000/query -H "Content-Type: application/json" -d '{"question":"..."}'` → 응답 필드가 [API Spec.md](API%20Spec.md)와 같은지 확인 ✅
+3. 승인 흐름: 개정 질문 → "승인 대기 REQ-x" → `{"question": "승인 REQ-x"}` → 확정 초안 반환 ✅
+4. 화면: 브라우저 `http://localhost:8000/` → 탭 4개 동작 (실제 브라우저 확인은 사용자)
+5. LangSmith: `mini-pjt` 프로젝트에서 `msds-query` run 확인 ✅
+6. 평가: `python -m evaluation.run_eval --round 1` ✅(18/20) / `--round 2` ⏳(토큰 한도)
+7. 클린 환경: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.env msds-agent` ⏳(이 PC에 Docker 없음)
 
 ## 외부 서비스·키 (모두 준비 완료, 2026-11-11 실제 호출로 확인)
 
@@ -175,13 +187,13 @@ POST /query → input_guard → supervisor ─┬─ regulation_agent  (법령 R
 
 | 서비스 | 환경 변수 | 확인 결과 |
 |---|---|---|
-| AWS Bedrock | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`(`us-east-1`), `BEDROCK_MODEL_ID` | LLM `us.anthropic.claude-sonnet-4-6`, 임베딩 `amazon.titan-embed-text-v2:0`(1024차원) 호출 성공 |
+| AWS Bedrock | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`(`us-east-1`), `BEDROCK_MODEL_ID` | LLM `us.anthropic.claude-sonnet-4-6` → 2026-11-12부터 `global.anthropic.claude-sonnet-4-6`, 임베딩 `amazon.titan-embed-text-v2:0`(1024차원) 호출 성공. **채팅 모델은 계정 일일 토큰 한도(Too many tokens per day)에 자주 걸림** |
 | LangSmith | `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`(`mini-pjt`) | 인증 성공 |
 | 국가법령정보센터 Open API | `LAW_API_OC` | `lawSearch.do` 호출 성공 |
-| 공공데이터포털 (안전보건공단 MSDS) | `DATA_GO_KR_API_KEY` | `getChemList001`, `getChemDetail151` 호출 성공 |
+| 공공데이터포털 (안전보건공단 MSDS) | `DATA_GO_KR_API_KEY` | 2026-11-12 키 교체 후 `getChemList001`(`searchCnd=1`이 CAS 검색), `getChemDetail021`(2번), `getChemDetail151`(15번) 호출 성공 |
 
 ### Bedrock 모델 접근
-- 호출 성공: `us.anthropic.claude-sonnet-4-6`(사용 중), `us.anthropic.claude-sonnet-4-5-20250929-v1:0`
+- 호출 성공: `global.anthropic.claude-sonnet-4-6`(2026-11-12부터 사용 중), `us.anthropic.claude-sonnet-4-6`(1차 평가 때 사용), `us.anthropic.claude-sonnet-4-5-20250929-v1:0`
 - 권한 거부: Claude 5·5.5 계열, `claude-opus-4-5`. `claude-haiku-4-5`는 확인 시 요청 한도 초과(Throttling)라 판단 보류
 
 ### 국가법령정보센터

@@ -57,10 +57,15 @@ class AgentState(TypedDict, total=False):
     trace: Annotated[list[dict], operator.add]
 
 
-def step(name: str, inp: Any, out: Any) -> dict[str, str]:
+# (기존 코드) 출력 길이 1500자 고정 — UI 영향 분석 표가 revision_judgment JSON 전체를 읽도록 limit 인자 추가
+# def step(name: str, inp: Any, out: Any) -> dict[str, str]:
+#     def s(x):
+#         return x if isinstance(x, str) else json.dumps(x, ensure_ascii=False)
+#     return {"step": name, "input": s(inp)[:1500], "output": s(out)[:1500]}
+def step(name: str, inp: Any, out: Any, limit: int = 1500) -> dict[str, str]:
     def s(x):
         return x if isinstance(x, str) else json.dumps(x, ensure_ascii=False)
-    return {"step": name, "input": s(inp)[:1500], "output": s(out)[:1500]}
+    return {"step": name, "input": s(inp)[:1500], "output": s(out)[:limit]}
 
 
 # ---------------------------------------------------------------- 도구 (기준일 고정) 와 프롬프트
@@ -397,7 +402,7 @@ def build_graph(brains: Brains | None = None, checkpointer=None):
             # upd["trace"] = upd["trace"] + [step("revision_judgment", "RevisionJudgment", j.model_dump())]
             j, removed = sanitize_judgment(j, msgs)
             upd["judgment"] = j.model_dump()
-            upd["trace"] = upd["trace"] + [step("revision_judgment", "RevisionJudgment", j.model_dump())]
+            upd["trace"] = upd["trace"] + [step("revision_judgment", "RevisionJudgment", j.model_dump(), limit=20000)]
             if removed:
                 upd["trace"] = upd["trace"] + [step("judgment_check", "assess_update 대조", removed)]
             upd["answer"] = (format_judgment(j, state["req_id"], pending=True) if j.revision_needed

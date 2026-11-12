@@ -21,6 +21,7 @@
       "date": "2026-10-20",
       "summary": "제품명은 그대로 두고, P-002의 톨루엔 함유량을 10~20%에서 25~35%로 올린다.",
       "match": {"product_id": "P-002", "change": "구성성분 함유량"},
+      "changes": [{"op": "component", "product_id": "P-002", "section": "3", "name": "톨루엔", "field": "content", "before": "10~20%", "after": "25~35%"}],
       "related_docs": ["law:산안법:110", "law:산안법시행규칙:159"]
     },
     {
@@ -31,6 +32,7 @@
       "date": "2026-10-28",
       "summary": "P-004 시험 결과 '피부 과민성 구분1'이 새로 확인되어 2번 항목의 유해성 분류가 바뀐다.",
       "match": {"product_id": "P-004", "change": "건강 및 환경에 대한 유해성"},
+      "changes": [{"op": "add", "product_id": "P-004", "section": "2", "value": "피부 과민성 구분1"}],
       "related_docs": ["law:산안법:110", "law:산안법시행규칙:159"]
     },
     {
@@ -41,6 +43,7 @@
       "date": "2026-11-03",
       "summary": "P-006의 구성성분과 함유량은 그대로 두고, 제품명만 '알코-와이프 프로 E-70'으로 바꾼다.",
       "match": {"product_id": "P-006", "change": "제품명"},
+      "changes": [{"op": "set", "product_id": "P-006", "section": "1", "field": "name", "before": "알코-와이프 E-70 (세정용 에탄올)", "after": "알코-와이프 프로 E-70"}],
       "related_docs": ["law:산안법:110", "law:산안법시행규칙:159"]
     }
   ]
