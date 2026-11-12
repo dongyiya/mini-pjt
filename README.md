@@ -1,7 +1,16 @@
 # 미니 PJT: MSDS 개정 지원 에이전트
 
 ## 무엇을 푸나
-화학물질 규제나 제품 배합이 바뀌면 어떤 제품 MSDS의 몇 번 항목을 고치고 공단에 다시 제출해야 하는지를 근거 조문과 함께 알려 주고, 담당자 승인을 받아 개정 초안까지 만듭니다. 대상 사용자는 중소 화학업체 EHS 담당자이고, 데모는 가상 회사 '한빛케미칼' 제품 6개로 합니다. 자세한 스펙은 [SERVICE.md](SERVICE.md), 사용법은 [사용자 매뉴얼](docs/사용자_매뉴얼.md)에 있습니다.
+화학물질 규제나 제품 배합이 바뀌면 어떤 제품 MSDS의 몇 번 항목을 고치고 공단에 다시 제출해야 하는지를 근거 조문과 함께 알려 주고, 담당자 승인을 받아 개정 초안까지 만듭니다. 대상 사용자는 중소 화학업체 EHS 담당자이고, 데모는 가상 회사 '한빛케미칼' 제품 6개로 합니다.
+
+| 문서 | 내용 |
+|---|---|
+| [SERVICE.md](SERVICE.md) | 서비스 스펙: 사용자·문제, 도구·데이터, 서비스 정책, 성공 기준 |
+| [docs/사용자_매뉴얼.md](docs/사용자_매뉴얼.md) | 화면·질문·승인 사용법, 서버 운영 |
+| [API Spec.md](API%20Spec.md) | `POST /query` 입출력 |
+| [evaluation/round1_report.md](evaluation/round1_report.md), [round2_report.md](evaluation/round2_report.md) | 1·2차 평가 보고서 |
+| [HANDOFF.md](HANDOFF.md) | 인계용 현재 상태와 남은 일 |
+| [CLAUDE.md](CLAUDE.md) | 개발 규칙, `src/` 폴더 역할과 배치 규칙 |
 
 ## 활용한 패턴 (Day 1~7)
 BuildPattern 12개 중 11개를 적용했습니다(10번 장기 메모리 제외). 필수 1·3·11·12 포함.
@@ -21,17 +30,17 @@ BuildPattern 12개 중 11개를 적용했습니다(10번 장기 메모리 제외
 ## 아키텍처
 
 ```
-브라우저 UI (GET /)  ─┐
-PowerShell·curl 등   ─┴→ POST /query (FastAPI, src/api/app.py)
-                          │  '승인/반려 REQ-x' → 체크포인트에서 재개 · '법령 갱신' → 법령 수동 갱신
-                          ▼
+브라우저 화면 (GET /)  ─┐
+PowerShell·curl 등     ─┴→ POST /query (FastAPI, src/api/app.py)
+                            │  '승인/반려 REQ-x' → 체크포인트에서 재개 · '법령 갱신' → 법령 수동 갱신
+                            ▼
    LangGraph (src/workflows/graph.py)
    input_guard ─(차단)──────────────────────────────────────────┐
        └→ supervisor (기준일 추출 + Route 구조화 출력)            │
              ├→ regulation_agent ── search_law ─→ retriever ─→ data/laws, index/
              ├→ impact_agent ───── 도구 11개 (MSDS DB 6개는 MCP 경유) ─→ data/msds, data/substances
              └→ revision_agent ── RevisionJudgment → 사후 검증 → approval(interrupt) ─┤
-                                                                                     ▼
+                                                                   (승인 시 MSDS 반영)  ▼
                                                         output_guard (마스킹) → answer·contexts·trace
    SqliteSaver(checkpoints.sqlite) · LangSmith trace · AWS Bedrock(Sonnet 4.6, Titan v2)
 
@@ -40,18 +49,34 @@ PowerShell·curl 등   ─┴→ POST /query (FastAPI, src/api/app.py)
              scripts/build_index.py → index/ (Titan 임베딩)
 ```
 
-UI는 탭 4개(영향 분석 대시보드, 제품 MSDS, 어시스턴트, 승인함)이고 모든 버튼이 `POST /query` 하나만 씁니다. 대시보드·MSDS 조회·변경 전후 비교는 규칙 기반이라 AI 없이 동작합니다.
+화면은 탭 4개(영향 분석 대시보드, 제품 MSDS, 어시스턴트, 승인함)이고 모든 버튼이 `POST /query` 하나만 씁니다. 대시보드·MSDS 조회·변경 전후 비교는 규칙 기반이라 AI 없이 바로 나옵니다.
+
+### 소스 폴더 (`src/`, 도메인별)
+
+| 폴더 | 역할 |
+|---|---|
+| `api/` | FastAPI 앱, API Spec 스키마, 화면(`static/index.html`) |
+| `agents/` | 프롬프트, LLM 라우터·ReAct·판정, 구조화 출력, 판정 사후 검증 |
+| `workflows/` | LangGraph 그래프·`run_query`, 도구 결과 → 근거 변환 |
+| `memory/` | SqliteSaver 체크포인터, 승인 요청 번호 |
+| `tools/` | 도구 11개, MCP 서버·클라이언트 |
+| `regulation/` | RAG 검색, 법령 수동 갱신 |
+| `revision/` | 변경 미리보기, 승인 후 MSDS 반영·원복 |
+| `guardrails/` | 입력 차단, 출력 마스킹 |
+| `shared/` | 설정, Bedrock 클라이언트, 기준일 추출, trace 단계 |
 
 ## 실행 방법
 `mini-pjt` 폴더에서 Git Bash로 실행합니다. Python은 상위 폴더의 `.venv`(3.14)를, 키는 상위 폴더의 `.env`를 씁니다.
 
 ```bash
-./run.sh setup    # 처음 한 번: 법령·물질 수집 + 검색 인덱스 생성
-./run.sh serve    # 서버 → 화면 http://localhost:8000/ , API POST http://localhost:8000/query
-./run.sh eval1    # 1차 평가 (eval2: 2차). 시작할 때 제품 MSDS를 원래 데모 데이터로 자동 원복
-./run.sh reset-msds  # 승인으로 바뀐 제품 MSDS를 원래 데모 데이터로 되돌림
-./run.sh test     # 단위 테스트
+./run.sh setup        # 처음 한 번: 법령·물질 수집 + 검색 인덱스 생성
+./run.sh serve        # 서버 → 화면 http://localhost:8000/ , API POST http://localhost:8000/query
+./run.sh reset-msds   # 승인으로 바뀐 제품 MSDS를 원래 데모 데이터로 되돌림
+../.venv/Scripts/python -m evaluation.run_eval --round 3   # 평가 (시작할 때 제품 MSDS 자동 원복)
+./run.sh test         # 단위 테스트
 ```
+
+PowerShell에서는 `..\.venv\Scripts\python -m uvicorn src.api.app:app --port 8000`으로 서버를 켭니다.
 
 필요한 환경 변수(상위 `.env`): `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `BEDROCK_MODEL_ID`, `LAW_API_OC`(국가법령정보센터), `DATA_GO_KR_API_KEY`(공공데이터포털), `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`.
 
@@ -60,26 +85,23 @@ API는 [API Spec.md](API%20Spec.md)를 따릅니다: `POST /query`, 요청 `{"qu
 Docker: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.env msds-agent` (이 PC에 Docker가 없어 이미지 빌드는 검증하지 못했습니다)
 
 ## RAGAS 평가 결과
-2차 평가(최종, 2026-11-12, `us.anthropic.claude-sonnet-4-6`, us-west-2) 기준, contexts가 있는 17건 모두 계산:
-
-- context_recall: 0.87 (목표 0.80 이상 ✅)
-- context_precision: 0.90
-- faithfulness: 0.78 (목표 0.85 이상 ❌ — 원인과 이후 반영한 개선은 아래 '남은 한계' 참고)
-- answer_relevancy: 0.61
+최종 결과는 2차 평가입니다(2026-11-12, `us.anthropic.claude-sonnet-4-6`, us-west-2, contexts가 있는 17건 모두 계산).
 
 | 지표 | 1차 | 2차 (최종) | 목표 |
 |---|---|---|---|
-| faithfulness | 0.77 | 0.78 | 0.85 이상 |
-| context_recall | 0.90 | 0.87 | 0.80 이상 |
+| faithfulness | 0.77 | 0.78 | 0.85 이상 ❌ |
+| context_recall | 0.90 | 0.87 | 0.80 이상 ✅ |
 | context_precision | 0.90 | 0.90 | |
 | answer_relevancy | 0.63 | 0.61 | |
 
-1차 RAGAS는 처음 실행 때 Bedrock 시간 초과·한도 초과로 일부만 계산돼, 저장된 1차 답변으로 다시 계산한 값입니다(`--ragas-only`). 1·2차가 거의 같은 것은 2차 개선(16·17번)이 판정 정확도를 고친 것이지 근거 형식을 바꾼 것이 아니기 때문입니다.
+- 1차 RAGAS는 처음 실행 때 Bedrock 시간 초과·한도 초과로 일부만 계산돼, 저장된 1차 답변으로 다시 계산한 값입니다(`--ragas-only`).
+- 1·2차 값이 거의 같은 것은 2차 개선(16·17번)이 판정 정확도를 고친 것이지 근거 형식을 바꾼 것이 아니기 때문입니다.
+- faithfulness 미달 원인과 이후 개선은 아래 '남은 한계'에 있습니다.
 
 ## 인-아웃 세트 통과율 (자체 평가)
 - 1차: **18 / 20 통과** (guardrail 3건 + 범위 밖 9번 모두 통과, 평균 응답 10.0초) → [evaluation/round1_report.md](evaluation/round1_report.md)
 - 2차: **19 / 20 통과** (필수 4건 모두 통과, 평균 응답 8.6초, 15초 이내 18/20) → [evaluation/round2_report.md](evaluation/round2_report.md)
-- 개선폭: **+1건** (주요 개선 사항: 16번 판정 환각 → LLM 판정을 규칙 도구 결과로 사후 검증, 17번 영향 제품 누락 → 영향 분석 지시 보강. 대신 12번이 묻지 않은 다른 제품 수치를 덧붙여 새로 실패)
+- 개선폭: **+1건** (16번 판정 환각 → LLM 판정을 규칙 도구 결과로 사후 검증, 17번 영향 제품 누락 → 영향 분석 지시 보강. 대신 12번이 묻지 않은 다른 제품 수치를 덧붙여 새로 실패)
 - 1차는 us-east-1, 2차는 us-west-2에서 같은 모델 이름으로 실행했습니다(us-east-1 일일 토큰 한도 때문).
 
 ## 트라이앤에러 회고
@@ -92,18 +114,17 @@ Docker: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.
 - 최종 채택한 접근 · 왜 그것으로 갔는가
   - 판정의 뼈대(영향 제품·항목·재제출)는 **규칙 도구**(`assess_update`, `check_resubmission`)가 정하고, LLM은 도구 선택·설명·초안 문장을 맡게 했습니다. 법적 판단을 LLM 기억에 맡기지 않고 원문 조문과 규칙으로 고정하기 위해서입니다.
   - HITL·법령 갱신을 **새 엔드포인트 없이 `/query` 명령**으로 처리해 API Spec을 그대로 지켰습니다.
+  - 마지막에 `src/`를 **도메인별 폴더**로 나눠 프롬프트·로직·스키마를 기능 단위로 모았습니다(동작 변경 없음, 실제 질문으로 확인).
 - 남은 한계 · 향후 개선 방향
-  - **faithfulness 0.78로 목표(0.85) 미달**: 법령 질문은 0.80~1.00으로 높지만, 제품·개정 판정 질문은 근거가 JSON이라 대조가 어렵고 승인 안내 문구의 출처가 근거에 없어 낮았습니다. 2차 이후 근거를 문장형으로 바꾸고 규칙 판정·서비스 정책을 근거로 추가했으며, 12번 대응 지시도 넣었습니다. 다만 **3차 평가는 돌리지 않아 효과는 미검증**입니다(`python -m evaluation.run_eval --round 3`).
-  - Bedrock 일일 토큰 한도: 평가 한 번(20문항+채점+RAGAS)이 하루 한도에 가깝습니다. 리전 변경(us-west-2)으로 2차를 마쳤고, 평가 스크립트는 한도 초과 시 바로 멈추도록 했습니다.
-  - 응답 시간: 2차 평균 8.6초, 15초 초과 2건(최대 18.3초). 리랭크 후보 축소나 검색 횟수 줄이기로 개선할 수 있습니다.
+  - **faithfulness 0.78로 목표(0.85) 미달**: 법령 질문은 0.80~1.00으로 높지만, 제품·개정 판정 질문은 근거가 JSON이라 대조가 어렵고 승인 안내 문구의 출처가 근거에 없어 낮았습니다. 2차 이후 근거를 문장형으로 바꾸고 규칙 판정·서비스 정책을 근거로 추가했으며, 12번 대응 지시도 넣었습니다. 다만 **3차 평가는 돌리지 않아 효과는 미검증**입니다.
+  - Bedrock 일일 토큰 한도: 평가 한 번(20문항+채점+RAGAS)이 하루 한도에 가깝습니다. 평가 스크립트는 한도 초과 시 바로 멈춥니다.
+  - 응답 시간: 2차 평균 8.6초, 15초 초과 2건(최대 18.3초, 법령 질문). 리랭크 후보 축소나 검색 횟수 줄이기로 개선할 수 있습니다.
   - 승인 → MSDS 반영은 시험 기능입니다. 평가 전에는 원래 데모 데이터로 자동 원복합니다.
   - 수집 범위: 산업안전보건법 시행령과 MSDS 고시는 아직 수집하지 않아, 혼합물 최종 분류는 계산하지 않고 '확인 필요' 검토 목록만 냅니다.
   - MCP를 거친 도구 호출은 LangSmith에서 본 실행 아래가 아니라 별도 run으로 기록됩니다.
-  - 화면의 승인함 목록은 브라우저에만 저장됩니다(승인 대기 상태 자체는 서버 체크포인트에 있음).
+  - 리팩토링 후 단위 테스트는 실행하지 않았습니다(테스트 파일의 import 경로만 갱신).
 
 ## 핵심 코드 위치
-폴더별 역할과 파일 배치 규칙은 [CLAUDE.md](CLAUDE.md) "소스 폴더 구조" 절에 있습니다.
-
 - [src/workflows/graph.py:92](src/workflows/graph.py#L92) — 메인 에이전트 그래프 `build_graph` (input_guard → supervisor → 서브 에이전트 → approval → output_guard)
 - [src/workflows/graph.py:229](src/workflows/graph.py#L229) — `run_query`: `/query` 처리, 승인/반려 재개, 법령 갱신 명령
 - [src/agents/](src/agents/) — 프롬프트(`prompts.py`), LLM 라우터·ReAct·판정(`brains.py`), 구조화 출력 스키마(`schemas.py`), 판정 사후 검증 [`sanitize_judgment`](src/agents/judgment.py#L18)
@@ -111,5 +132,6 @@ Docker: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.
 - [src/regulation/retriever.py:389](src/regulation/retriever.py#L389) — RAG 파이프라인 `search` (하이브리드 검색·리랭크·시행일 판 선택)
 - [src/guardrails/guard.py](src/guardrails/guard.py) — 입력 차단 `check_input`, 출력 마스킹 `mask_output`
 - [src/tools/mcp_server.py](src/tools/mcp_server.py), [src/tools/mcp_client.py](src/tools/mcp_client.py) — MCP 서버·클라이언트 브리지
+- [src/revision/msds_apply.py](src/revision/msds_apply.py) — 승인 후 MSDS 반영·원복
 - [src/api/app.py](src/api/app.py), [src/api/static/index.html](src/api/static/index.html) — API 서버와 화면
 - [evaluation/run_eval.py](evaluation/run_eval.py) — LLM-as-Judge + RAGAS 평가

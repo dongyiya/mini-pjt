@@ -35,24 +35,32 @@
   - 모든 판단에 조문 원문(`contexts`)을 붙여 담당자가 바로 확인할 수 있습니다.
   - 확정과 제출은 사람이 승인해야만 진행됩니다.
 
-## 3. 사용 도구·데이터 (2026-11-12 구현 기준)
+## 3. 사용 도구·데이터
 
 ### 도구 (`src/tools/msds_tools.py`, 11개)
 
-| 도구 | 기능 | 인터페이스 | 상태 |
-|---|---|---|---|
-| `get_msds(product_id, sections)` | 제품 MSDS 조회. 영업비밀 성분과 연락처 마스킹 | 로컬 JSON, **MCP 서버 경유** | 완료 |
-| `list_products()` | 등록 제품 목록 (없는 제품 질문 시 안내용) | 로컬 JSON, MCP 경유 | 완료 |
-| `find_products_by_cas(cas)` | CAS 번호로 해당 성분을 포함한 제품 검색 (영업비밀 성분 제외) | 로컬 JSON, MCP 경유 | 완료 |
-| `find_products_by_term(term, section)` | 특정 항목(기본 15번)에 용어가 적힌 제품 검색 | 로컬 JSON, MCP 경유 | 완료 |
-| `get_regulation_update(id)` / `list_regulation_updates()` | 규제·사내 변경 사건 조회 | 로컬 JSON | 완료 |
-| `check_resubmission(change)` | 시행규칙 제159조제1항 재제출 대상 판정 | 규칙 함수 | 완료 |
-| `assess_update(update_id)` | 변경 사건의 영향 제품·항목·재제출 여부 판정 | 규칙 함수 (LLM 판정의 기준선, 판정 사후 검증에 사용) | 완료 |
-| `search_law(query, as_of)` | 법령 조문 검색: BM25(kiwipiepy)+FAISS(Titan v2) RRF, 쿼리 확장, LLM 리랭킹. 기준일 시행 판과 시행 예정 판을 나눠 반환 | `src/regulation/retriever.py` | 완료 |
-| `get_substance(cas)` | 단일물질 정보 (GHS 분류, 그림문자, 신호어, 국내 규제현황) | `data/substances/` 스냅샷, MCP 경유 | 완료 |
-| `classify_mixture(product_id)` | 성분별 GHS 분류를 모아 제품 2번 항목과 비교한 **검토 목록**. 혼합물 최종 분류(가산식·한계농도)는 고시 원문 미수집이라 '확인 필요' | 규칙 함수, MCP 경유 | 완료 (검토 목록까지) |
-| 법령 수집·갱신 | 현행·시행예정 판 수집, 조문 비교, 인덱스 재생성 | 국가법령정보센터 Open API(`target=eflaw`), `scripts/collect_data.py`, `/query` "법령 갱신"(UI 법령 가져오기 버튼) | 완료 (수동 실행만) |
-| 물질 수집 | 공개 성분 단일물질 MSDS 스냅샷 | 안전보건공단 MSDS API, `scripts/collect_substances.py` | 완료 |
+에이전트가 스스로 골라 호출하는 도구입니다. MSDS DB 조회 6개는 MCP 서버(`src/tools/mcp_server.py`)를 거쳐 호출하고, 연결에 실패하면 로컬 함수를 그대로 씁니다.
+
+| 도구 | 기능 | 데이터·방식 |
+|---|---|---|
+| `get_msds(product_id, sections)` | 제품 MSDS 조회. 영업비밀 성분과 연락처 마스킹 | 제품 JSON, MCP |
+| `list_products()` | 등록 제품 목록 (없는 제품 질문 시 안내용) | 제품 JSON, MCP |
+| `find_products_by_cas(cas)` | CAS 번호로 해당 성분을 포함한 제품 검색 (영업비밀 성분 제외) | 제품 JSON, MCP |
+| `find_products_by_term(term, section)` | 특정 항목(기본 15번)에 용어가 적힌 제품 검색 | 제품 JSON, MCP |
+| `get_regulation_update(id)` / `list_regulation_updates()` | 규제·사내 변경 사건 조회 | 변경 사건 JSON |
+| `check_resubmission(change)` | 시행규칙 제159조제1항 재제출 대상 판정 | 규칙 함수 |
+| `assess_update(update_id)` | 변경 사건의 영향 제품·항목·재제출 여부 판정 (LLM 판정의 기준선, 사후 검증에 사용) | 규칙 함수 |
+| `search_law(query, as_of)` | 법령 조문 검색: BM25(kiwipiepy)+FAISS(Titan v2) RRF, 쿼리 확장, LLM 리랭킹. 기준일 시행 판과 시행 예정 판을 나눠 반환 | `src/regulation/retriever.py` |
+| `get_substance(cas)` | 단일물질 정보 (GHS 분류, 그림문자, 신호어, 국내 규제현황) | 물질 스냅샷, MCP |
+| `classify_mixture(product_id)` | 성분별 GHS 분류를 모아 제품 2번 항목과 비교한 **검토 목록**. 혼합물 최종 분류(가산식·한계농도)는 고시 원문 미수집이라 '확인 필요' | 규칙 함수, MCP |
+
+### 수집·운영 기능
+
+| 기능 | 내용 | 실행 |
+|---|---|---|
+| 법령 수집·갱신 | 현행·시행 예정 판 수집, 조문 비교, 바뀌면 인덱스 재생성 | 국가법령정보센터 Open API(`target=eflaw`). 화면 '법령 가져오기' 버튼(= `/query` "법령 갱신") 또는 `./run.sh setup`. **수동 실행만** |
+| 물질 수집 | 공개 성분 단일물질 MSDS 스냅샷 | 안전보건공단 MSDS API, `scripts/collect_substances.py` |
+| 승인 후 MSDS 반영 | 승인한 개정 초안을 제품 MSDS에 반영(개정판 +1, 이전 판 보관). '확인 필요' 항목은 담당자 대체 표기 입력 필수 | 승인 시 자동. **시험 기능**이라 평가 전 원래 데모 데이터로 자동 원복(`./run.sh reset-msds`) |
 
 ### 데이터 (`data/`)
 
@@ -72,7 +80,14 @@
 
 ### 화면 (`GET /`)
 
-탭 4개: 영향 분석 대시보드(규칙 기반 판정, AI 판정·개정 초안 버튼, 법령 가져오기), 제품 MSDS 조회, 어시스턴트, 승인함(현재 → 변경 후 MSDS 비교, 승인·반려). 모든 버튼은 `POST /query`만 씁니다. 사용법은 [docs/사용자_매뉴얼.md](docs/사용자_매뉴얼.md).
+| 탭 | 기능 |
+|---|---|
+| 영향 분석 | 변경 사건별 영향 제품·고칠 항목·재제출 여부 대시보드(규칙 기반, AI 없이 즉시), 변경 전·후 MSDS, AI 판정·개정 초안 만들기, 법령 가져오기 |
+| 제품 MSDS | 제품 MSDS(마스킹), 성분별 공단 물질 정보, 영향 변경 사건 |
+| 어시스턴트 | 자유 질문, 근거·처리 단계 펼쳐 보기 |
+| 승인함 | 개정 초안, 현재 → 변경 후 MSDS 비교, '확인 필요' 대체 표기 입력(추천 문구), 승인·반려 |
+
+모든 버튼은 `POST /query`만 씁니다(새 엔드포인트 없음). 사용법은 [docs/사용자_매뉴얼.md](docs/사용자_매뉴얼.md).
 
 ## 4. 서비스 정책 (가드레일 요약)
 
@@ -82,7 +97,7 @@
 4. **근거 없는 법적 판단은 하지 않습니다.** 모든 판정에 근거 조문을 `contexts`로 붙입니다. 최종 판단은 담당자가 하도록 안내합니다.
 5. **범위 밖 요청과 지시 변경 시도는 거절합니다.** MSDS·산업안전보건법·화학물질관리법과 무관한 질문, 프롬프트 인젝션을 막습니다.
 
-세부 케이스는 `evaluation/test_queries.csv`의 `guardrail` 항목(18~20번)과 범위 밖 질문(9번, `negative`)으로 검증합니다.
+세부 케이스는 `evaluation/test_queries.csv`의 `guardrail` 항목(18~20번)과 범위 밖 질문(9번, `negative`)으로 검증합니다. 승인 대기·마스킹·거절 안내를 할 때는 이 절을 `policy:service` 근거로 답변에 붙입니다.
 
 ## 5. 성공 기준
 
@@ -96,3 +111,15 @@
   - 근거 제시율: 판정 답변의 100%에 근거 조문이 `contexts`로 포함
   - RAGAS: faithfulness 0.85 이상, context_recall 0.80 이상
   - 응답 시간: 질의 1건당 15초 이내(가정)
+
+### 최종 결과 (2차 평가, 2026-11-12)
+
+| 기준 | 목표 | 결과 | 달성 |
+|---|---|---|---|
+| 통과율 | 16/20 이상 | **19/20** | ✅ |
+| guardrail 3건 + 9번 | 전부 통과 | 4/4 | ✅ |
+| faithfulness | 0.85 이상 | 0.78 | ❌ |
+| context_recall | 0.80 이상 | 0.87 | ✅ |
+| 응답 시간 | 15초 이내 | 평균 8.6초, 15초 이내 18/20 | 대체로 ✅ |
+
+자세한 내용은 [evaluation/round2_report.md](evaluation/round2_report.md)에 있습니다. faithfulness 개선(근거 문장형 등)은 2차 이후 반영했지만 평가로 검증하지 않았습니다.
