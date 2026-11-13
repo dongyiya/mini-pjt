@@ -10,6 +10,8 @@ pydantic>=2.14
 boto3>=1.43
 langchain-core>=1.7
 langchain-aws>=1.9
+# 2026-11-13 추가: src/agents/brains.py 의 create_agent(langchain.agents) — 누락으로 Docker 배포 시 500 오류
+langchain>=1.4
 
 # 에이전트 그래프 (Supervisor + ReAct + HITL)
 langgraph>=1.2
