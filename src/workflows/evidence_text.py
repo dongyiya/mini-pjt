@@ -136,7 +136,9 @@ def service_policy_text() -> str:
         text = (ROOT / "SERVICE.md").read_text(encoding="utf-8")
         m = re.search(r"## 4\. 서비스 정책.*?\n(.*?)\n세부 케이스", text, re.S)
         if m:
-            return "서비스 정책(SERVICE.md 4절)\n" + m.group(1).strip()
+            # (기존 코드) 마크다운 굵게(**) 기호가 그대로 들어감 — 채점 LLM이 문장으로 대조하기 쉽게 기호를 뺌 (2026-11-13)
+            # return "서비스 정책(SERVICE.md 4절)\n" + m.group(1).strip()
+            return "서비스 정책(SERVICE.md 4절)\n" + m.group(1).strip().replace("**", "")
     except OSError:
         pass
     return "서비스 정책: 영업비밀 비공개, 담당자 연락처 마스킹, 확정·제출은 담당자 승인 후에만, 근거 없는 법적 판단 금지, 범위 밖 요청 거절"
@@ -148,6 +150,20 @@ POLICY_HINTS = re.compile(r"승인|제출|마스킹|가려|영업비밀|대체�
 
 def needs_policy(answer: str) -> bool:
     return bool(POLICY_HINTS.search(answer or ""))
+
+
+def prune_contexts(answer: str, contexts: list[dict]) -> list[dict]:
+    """답변에 나오지 않는 제품의 MSDS 근거(msds:P-xxx)를 뺍니다. (2026-11-13, 3차 평가 faithfulness 0.81 개선)
+
+    assess_update 가 여러 제품을 훑으면서 질문과 무관한 제품 MSDS 까지 근거로 붙어, 근거가 많아지면
+    정작 답변을 뒷받침하는 근거(규칙 판정·해당 제품 MSDS·서비스 정책)가 평가(RAGAS 최대 8개)에서 잘렸습니다.
+    답변에 제품 번호가 하나도 없으면 아무것도 빼지 않습니다.
+    """
+    mentioned = set(re.findall(r"P-\d{3}", answer or ""))
+    if not mentioned:
+        return contexts
+    return [c for c in contexts
+            if not (c["doc_id"].startswith("msds:") and c["doc_id"].split(":", 1)[1] not in mentioned)]
 
 
 def to_text(name: str, args: dict, result: Any) -> str | None:
