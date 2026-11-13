@@ -84,6 +84,73 @@
   @media (max-width: 860px) { .compare { grid-template-columns: minmax(0, 1fr); } }
   .linkbtn { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; font-size: 13px; min-height: 28px; }
   @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } main { padding: 16px; } }
+
+  /* ---------------------------------------------------------------- 디자인 개선 (2026-11-13, ui-ux-pro-max 점검)
+     기존 규칙은 그대로 두고 아래에서 덮어씁니다. 바뀐 점: 그림자·모서리 단계, 키보드 포커스 표시, 마우스 올림·누름 반응,
+     상단 고정 헤더, 숫자 고정폭, 다크 모드, 움직임 줄이기 설정 존중, 화면 낭독기용 숨김 라벨(.sr-only) */
+  :root {
+    --surface-2: #F1F3F6; --pill-gray: #EEF0F3; --on-accent: #FFFFFF; --bubble: #16191F; --on-bubble: #FFFFFF;
+    --ring: #0B5E5E; --shadow-1: 0 1px 2px rgba(16, 24, 40, .06); --shadow-2: 0 4px 12px rgba(16, 24, 40, .08);
+    --radius: 12px; --radius-sm: 8px; --dur: 160ms; color-scheme: light;
+  }
+  body { font-size: 15px; -webkit-font-smoothing: antialiased; }
+  header { position: sticky; top: 0; z-index: 20; box-shadow: var(--shadow-1); }
+  .brand strong { font-size: 16px; letter-spacing: -0.01em; }
+  .card { border-radius: var(--radius); box-shadow: var(--shadow-1); }
+  .card h2 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .stat .v, .badge, td, .mark { font-variant-numeric: tabular-nums; }
+  .stat .v { line-height: 1.2; }
+  .pill.gray { background: var(--pill-gray); }
+  .btn.primary { color: var(--on-accent); }
+  .bubble-q { background: var(--bubble); color: var(--on-bubble); }
+  .toast { background: var(--bubble); color: var(--on-bubble); }
+
+  /* 마우스 올림·누름 반응 (레이아웃은 움직이지 않고 색·그림자만 바뀜) */
+  .btn, .chip, .tab, .list-item, .linkbtn, select, input[type=text], textarea {
+    transition: background-color var(--dur) ease, border-color var(--dur) ease, color var(--dur) ease, box-shadow var(--dur) ease;
+  }
+  .btn:not(:disabled):hover { background: var(--surface-2); border-color: var(--ink-2); }
+  .btn.primary:not(:disabled):hover { background: var(--accent); filter: brightness(1.12); border-color: var(--accent); }
+  .btn:not(:disabled):active { box-shadow: inset 0 1px 3px rgba(0, 0, 0, .15); }
+  .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .tab:hover { color: var(--ink); background: var(--surface-2); }
+  .list-item:hover:not([aria-current="true"]) { background: var(--surface-2); }
+  select:hover, input[type=text]:hover, textarea:hover { border-color: var(--ink-2); }
+  summary:hover { color: var(--accent); }
+
+  /* 키보드 포커스 표시 (마우스 클릭 때는 표시하지 않음) */
+  :focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
+  .tab:focus-visible { outline-offset: -3px; }
+  .list-item:focus-visible { outline-offset: -3px; }
+  select:focus-visible, input[type=text]:focus-visible, textarea:focus-visible { outline-offset: 0; border-color: var(--ring); }
+
+  /* 화면에는 숨기고 화면 낭독기에는 읽히는 라벨 */
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+  /* 긴 ID·CAS·조문 번호가 칸을 넘지 않게 */
+  td, .answer, .ctx pre, .event-card dd { overflow-wrap: anywhere; }
+
+  /* 다크 모드 — OS 설정을 따름 */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #0F1216; --surface: #171B21; --surface-2: #1F242C; --ink: #E8EBF0; --ink-2: #C3C9D2; --muted: #9AA3AF;
+      --line: #2A3039; --line-2: #3A414C; --accent: #0E7472; --accent-soft: #12302F; --ring: #4FC3BD;
+      --blue: #8DB5F2; --blue-soft: #1A2A42; --amber: #F0B266; --amber-soft: #3A2A14; --green: #8FD19E; --green-soft: #1A3322;
+      --red: #F19A90; --red-soft: #3D1D1A; --pill-gray: #262C35; --bubble: #2A313B; --on-bubble: #F2F4F7;
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .4); --shadow-2: 0 4px 12px rgba(0, 0, 0, .5);
+    }
+    .notice.info, .linkbtn, .chip:hover, summary:hover { color: var(--ring); }
+    .list-item[aria-current="true"] { border-left-color: var(--ring); }
+    .tab[aria-selected="true"] { border-bottom-color: var(--ring); }
+    .badge { color: #1A1206; }
+  }
+
+  /* 움직임 줄이기 설정을 켠 사용자에게는 애니메이션을 끔 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
+    .spinner { animation: spin 1.6s linear infinite !important; }
+  }
 </style>
 </head>
 <body>
@@ -152,7 +219,9 @@
     <div id="chat" class="chat"></div>
     <div id="chips" class="chips" style="margin-top: 12px"></div>
     <div class="composer">
-      <label for="ask" class="hidden">질문</label>
+      <!-- (기존 코드) display:none 이라 화면 낭독기도 라벨을 읽지 못함 → 화면에서만 숨기는 sr-only 로 변경 (2026-11-13)
+      <label for="ask" class="hidden">질문</label> -->
+      <label for="ask" class="sr-only">질문</label>
       <textarea id="ask" rows="2" placeholder="MSDS·법령·제품 질문을 입력하세요 (Enter 보내기, Shift+Enter 줄바꿈)"></textarea>
       <button id="send" class="btn primary" style="height: 64px">보내기</button>
     </div>
