@@ -104,10 +104,6 @@ def build_graph(brains: Brains | None = None, checkpointer=None):
         upd = {"trace": [step("input_guard", state["question"], out)], "blocked": g.blocked}
         if g.blocked:
             upd["answer"] = g.message
-            # (추가 2026-11-13) 영업비밀 거절 답변의 '공개 명칭·함유량 범위'는 제품 MSDS(마스킹본) 3번 항목이 출처이므로 근거로 붙임
-            if "trade_secret" in g.kinds:
-                pids = sorted(set(re.findall(r"P-\d{3}", state["question"].upper())))
-                upd["contexts"] = [_msds_context(pid, ["3"]) for pid in pids]
         return upd
 
     def supervisor(state: AgentState):
@@ -245,14 +241,8 @@ def parse_decision(question: str) -> tuple[str, str, str] | None:
 
 
 def _response(state: dict) -> dict:
-    # (기존 코드) 모은 근거를 모두 돌려줌 — 답변에 나오지 않는 제품의 MSDS 근거는 빼도록 변경 (2026-11-13)
-    # return {"answer": state.get("answer", ""),
-    #         "contexts": [{"doc_id": c["doc_id"], "text": c["text"]} for c in state.get("contexts", [])],
-    from src.workflows import evidence_text as context_text
-
-    kept = context_text.prune_contexts(state.get("answer", ""), state.get("contexts", []))
     return {"answer": state.get("answer", ""),
-            "contexts": [{"doc_id": c["doc_id"], "text": c["text"]} for c in kept],
+            "contexts": [{"doc_id": c["doc_id"], "text": c["text"]} for c in state.get("contexts", [])],
             "trace": [{"step": t["step"], "input": t["input"], "output": t["output"]} for t in state.get("trace", [])]}
 
 

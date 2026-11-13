@@ -87,3 +87,13 @@
 - 요청: 4차 평가가 끝나면 GitHub에 올리기
 - 한 일: 서버를 재시작해 고친 코드를 반영함. 9~10번 변경(코드 3개, CLAUDE.md, history.md, 3·4차 평가 결과)을 커밋해 `origin/master`에 push
 - 제외: `checkpoints.sqlite`, `index/`, `.archify/`, MSDS 이력 파일(기존 규칙)
+
+### 12. 4차 평가 작업 원복 (로컬만)
+- 요청: 4차 평가한 것 원복. 범위는 '코드 + 4차 결과 모두', GitHub에는 반영하지 않음(사용자 선택)
+- 한 일: `src/agents/prompts.py`, `src/workflows/evidence_text.py`, `src/workflows/graph.py`를 9번 수정 전(커밋 `c9e96f8`, 3차 평가 때) 상태로 되돌림. `evaluation/results/round4.json`, `evaluation/round4_report.md` 삭제. 서버 재시작
+- 유지: `history.md`, `CLAUDE.md`, 3차 평가 결과
+- 상태: 로컬에서만 되돌림. GitHub `origin/master`(`598b222`)에는 9번 수정 코드와 4차 결과가 그대로 남아 있음
+
+### 13. 원복을 GitHub에 반영
+- 요청: 12번 원복 내용을 GitHub에도 올리기
+- 한 일: 12번 변경(코드 3개 원복, 4차 결과 삭제, history.md)을 새 커밋으로 `origin/master`에 push. 이전 커밋 `598b222`는 이력에 남음
