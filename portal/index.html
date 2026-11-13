@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사내 앱 포탈</title>
+<style>
+  :root {
+    --bg: #f6f8fa; --surface: #ffffff; --text: #1f2933; --muted: #5b6672;
+    --line: #dde3ea; --accent: #0f766e; --on-accent: #ffffff;
+    --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 4px 12px rgba(15, 23, 42, .06);
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1419; --surface: #182029; --text: #e6edf3; --muted: #9aa7b4;
+      --line: #2a3542; --accent: #2dd4bf; --on-accent: #0b1a17;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 40px 16px 64px; }
+  header h1 { margin: 0 0 8px; font-size: 28px; }
+  header p { margin: 0; color: var(--muted); }
+  h2 { font-size: 18px; margin: 40px 0 12px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 20px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .card h3 { margin: 0; font-size: 17px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; flex: 1; }
+  .btn {
+    display: inline-block; align-self: flex-start; margin-top: 8px; padding: 10px 16px; min-height: 44px;
+    border-radius: 8px; background: var(--accent); color: var(--on-accent); text-decoration: none; font-weight: 600;
+    transition: filter .15s;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  ol { margin: 0; padding-left: 20px; }
+  ol li { margin: 6px 0; }
+  code { background: var(--line); padding: 1px 6px; border-radius: 4px; font-size: 14px; overflow-wrap: anywhere; }
+  .note { margin-top: 12px; color: var(--muted); font-size: 14px; }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>사내 앱 포탈</h1>
+    <p>만든 앱을 도커 이미지로 올려 여러 사람이 함께 쓰는 곳입니다. 업로드와 배포는 Coolify 관리 화면에서 합니다.</p>
+  </header>
+
+  <h2>바로가기</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>앱 올리기 (Coolify 관리 화면)</h3>
+      <p>Dockerfile·GitHub 저장소·도커 이미지로 새 앱을 등록하고 배포합니다. 관리자 계정이 필요합니다.</p>
+      <a class="btn" id="coolify-link" href="http://localhost:8000">관리 화면 열기</a>
+    </div>
+    <div class="card">
+      <h3>MSDS 개정 지원 에이전트</h3>
+      <!-- (기존 코드) <p>법령 변경에 따른 MSDS 개정·재제출 여부를 안내합니다. 배포 후 Coolify가 준 주소를 아래 링크에 넣습니다.</p> -->
+      <p>법령 변경에 따른 MSDS 개정·재제출 여부를 안내합니다. GitHub 저장소의 Dockerfile로 Coolify에 배포했습니다.</p>
+      <!-- (기존 코드) <a class="btn" id="msds-link" href="#">앱 열기</a> -->
+      <a class="btn" id="msds-link" href="http://msds.localhost">앱 열기</a>
+    </div>
+  </div>
+
+  <h2>앱을 올리는 순서</h2>
+  <ol>
+    <li>Coolify 관리 화면에서 <b>Projects → Add New Resource</b>를 누릅니다.</li>
+    <li>GitHub 저장소(Dockerfile 포함) 또는 도커 이미지 이름을 고릅니다.</li>
+    <li>앱이 듣는 포트(예: <code>8000</code>)를 <b>Ports Exposes</b>에 적습니다.</li>
+    <li>AWS 키 같은 비밀값은 <b>Environment Variables</b>에 넣습니다. 이미지 안에 넣지 마세요.</li>
+    <li><b>Deploy</b>를 누르고, 로그가 끝나면 받은 주소로 접속해 확인합니다.</li>
+  </ol>
+  <p class="note">이 포탈은 로컬 테스트용입니다(WSL2 + Coolify). 실제 서버에 올리면 주소만 회사 도메인으로 바뀝니다.</p>
+</div>
+</body>
+</html>

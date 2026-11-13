@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사내 앱 포탈</title>
+<style>
+  :root {
+    --bg: #f6f8fa; --surface: #ffffff; --surface-2: #f0f3f6; --text: #1f2933; --muted: #5b6672;
+    --line: #dde3ea; --accent: #0f766e; --on-accent: #ffffff; --danger: #b42318;
+    --ok: #067647; --ok-bg: #dcfae6; --warn: #93370d; --warn-bg: #fef0c7; --bad-bg: #fee4e2; --idle-bg: #eaecf0;
+    --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 4px 12px rgba(15, 23, 42, .06); --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1419; --surface: #182029; --surface-2: #1f2933; --text: #e6edf3; --muted: #9aa7b4;
+      --line: #2a3542; --accent: #2dd4bf; --on-accent: #0b1a17; --danger: #f97066;
+      --ok: #75e0a7; --ok-bg: #053321; --warn: #fec84b; --warn-bg: #4e1d09; --bad-bg: #55160c; --idle-bg: #2a3542;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  header h1 { margin: 0; font-size: 26px; cursor: pointer; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 15px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 18px;
+    border: 1px solid transparent; border-radius: 8px; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none;
+    background: var(--accent); color: var(--on-accent); transition: filter .15s; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.ghost { background: var(--surface); color: var(--text); border-color: var(--line); }
+  .btn.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--line); font-size: 15px; }
+  th { color: var(--muted); font-weight: 600; background: var(--surface-2); }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr { cursor: pointer; } tbody tr:hover { background: var(--surface-2); }
+  td.num { font-variant-numeric: tabular-nums; color: var(--muted); width: 64px; }
+  td.title { font-weight: 600; overflow-wrap: anywhere; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .s-run { background: var(--ok-bg); color: var(--ok); }
+  .s-busy { background: var(--warn-bg); color: var(--warn); }
+  .s-fail { background: var(--bad-bg); color: var(--danger); }
+  .s-idle { background: var(--idle-bg); color: var(--muted); }
+  .empty { padding: 48px 16px; text-align: center; color: var(--muted); }
+  form { padding: 24px; display: grid; gap: 16px; }
+  label { display: grid; gap: 6px; font-weight: 600; font-size: 15px; }
+  label small { font-weight: 400; color: var(--muted); }
+  input, textarea { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); min-height: 44px; }
+  textarea { min-height: 96px; resize: vertical; }
+  textarea.mono { font-family: ui-monospace, Consolas, monospace; font-size: 14px; }
+  .row2 { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 640px) { .row2 { grid-template-columns: 1fr; } .hide-sm { display: none; } }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .err { color: var(--danger); font-weight: 600; min-height: 1.6em; margin: 0; }
+  .detail { padding: 24px; display: grid; gap: 16px; }
+  .detail h2 { margin: 0; font-size: 22px; overflow-wrap: anywhere; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--muted); font-size: 14px; }
+  .desc { white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre.log { margin: 0; max-height: 360px; overflow: auto; padding: 12px; border-radius: 8px; background: #0b1220; color: #d1e0f0;
+    font: 13px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .hint { color: var(--muted); font-size: 14px; margin: 0; }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 onclick="location.hash=''">사내 앱 포탈</h1>
+      <p>Dockerfile이 들어 있는 소스 폴더를 zip으로 올리면 자동으로 빌드·배포됩니다.</p>
+    </div>
+    <a class="btn" href="#new">+ 새 서비스 올리기</a>
+  </header>
+  <main id="view" aria-live="polite"></main>
+</div>
+
+<script>
+const $view = document.getElementById("view");
+const BUSY = ["업로드됨", "빌드 중", "배포 중"];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const badge = s => {
+  const cls = s === "실행 중" ? "s-run" : s === "실패" ? "s-fail" : BUSY.includes(s) ? "s-busy" : "s-idle";
+  const dot = s === "실행 중" ? "●" : s === "실패" ? "✕" : BUSY.includes(s) ? "◐" : "○";
+  return `<span class="badge ${cls}">${dot} ${esc(s)}</span>`;
+};
+let timer = null;
+const later = (fn, ms) => { clearTimeout(timer); timer = setTimeout(fn, ms); };
+
+async function api(path, opt) {
+  const r = await fetch(path, opt);
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || `오류 ${r.status}`);
+  return body;
+}
+
+async function renderList() {
+  const posts = await api("/api/posts");
+  if (!posts.length) {
+    $view.innerHTML = `<div class="card empty">아직 올라온 서비스가 없습니다.<br><br><a class="btn" href="#new">첫 서비스 올리기</a></div>`;
+    return;
+  }
+  $view.innerHTML = `<div class="card"><table>
+    <thead><tr><th>번호</th><th>서비스 이름</th><th class="hide-sm">올린 사람</th><th>상태</th><th>주소</th><th class="hide-sm">올린 날짜</th></tr></thead>
+    <tbody>${posts.map(p => `<tr data-id="${p.id}" tabindex="0">
+      <td class="num">${p.id}</td><td class="title">${esc(p.title)}</td><td class="hide-sm">${esc(p.author)}</td>
+      <td>${badge(p.status)}</td>
+      <td>${p.status === "실행 중" ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">열기</a>` : "-"}</td>
+      <td class="hide-sm num" style="width:auto">${esc(p.created_at)}</td></tr>`).join("")}</tbody></table></div>`;
+  $view.querySelectorAll("tbody tr").forEach(tr => {
+    const go = () => location.hash = `#post/${tr.dataset.id}`;
+    tr.onclick = go; tr.onkeydown = e => { if (e.key === "Enter") go(); };
+  });
+  if (posts.some(p => BUSY.includes(p.status))) later(route, 5000);
+}
+
+function renderNew() {
+  const saved = localStorage.getItem("portal.author") || "";
+  $view.innerHTML = `<div class="card"><form id="f">
+    <div class="row2">
+      <label>서비스 이름 <input name="title" required maxlength="60" placeholder="예: MSDS 개정 지원"></label>
+      <label>올린 사람 <input name="author" required maxlength="30" value="${esc(saved)}" placeholder="이름"></label>
+    </div>
+    <div class="row2">
+      <label>주소 이름 <small>영문 소문자·숫자·하이픈 → http://주소이름.localhost</small>
+        <input name="slug" required pattern="[a-z][a-z0-9-]{1,29}" placeholder="예: msds"></label>
+      <label>포트 <small>앱이 컨테이너 안에서 듣는 포트</small><input name="port" required inputmode="numeric" value="8000"></label>
+    </div>
+    <label>설명 <textarea name="description" maxlength="2000" placeholder="무슨 서비스인지 적어 주세요"></textarea></label>
+    <label>소스 zip 파일 <small>Dockerfile이 들어 있는 폴더를 압축 (200MB 이하)</small>
+      <input name="file" type="file" accept=".zip" required></label>
+    <label>비밀값 (선택) <small>한 줄에 하나씩 KEY=VALUE. 이미지에 넣지 않고 배포 때만 전달합니다.</small>
+      <textarea name="envs" class="mono" placeholder="AWS_ACCESS_KEY_ID=...&#10;AWS_SECRET_ACCESS_KEY=...&#10;AWS_DEFAULT_REGION=us-west-2"></textarea></label>
+    <p class="err" id="err" role="alert"></p>
+    <div class="actions"><button class="btn" id="submit">올리기</button><a class="btn ghost" href="#">취소</a></div>
+  </form></div>`;
+  const f = document.getElementById("f");
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const btn = document.getElementById("submit"), err = document.getElementById("err");
+    btn.disabled = true; btn.textContent = "올리는 중…"; err.textContent = "";
+    try {
+      localStorage.setItem("portal.author", f.author.value.trim());
+      const { id } = await api("/api/posts", { method: "POST", body: new FormData(f) });
+      location.hash = `#post/${id}`;
+    } catch (x) { err.textContent = x.message; btn.disabled = false; btn.textContent = "올리기"; }
+  };
+}
+
+async function renderPost(id) {
+  const p = await api(`/api/posts/${id}`);
+  const keepScroll = document.querySelector("pre.log");
+  const atBottom = !keepScroll || keepScroll.scrollTop + keepScroll.clientHeight >= keepScroll.scrollHeight - 8;
+  $view.innerHTML = `<div class="card detail">
+    <div class="actions" style="justify-content:space-between;align-items:center">
+      <h2>${esc(p.title)}</h2>${badge(p.status)}</div>
+    <div class="meta"><span>번호 ${p.id}</span><span>올린 사람 ${esc(p.author)}</span><span>${esc(p.created_at)}</span>
+      <span>포트 ${esc(p.port)}</span><span>주소 ${p.status === "실행 중" ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url)}</a>` : esc(p.url)}</span></div>
+    ${p.description ? `<div class="desc">${esc(p.description)}</div>` : ""}
+    ${BUSY.includes(p.status) ? `<p class="hint">빌드와 배포에 몇 분 걸립니다. 이 화면은 자동으로 새로고침됩니다.</p>` : ""}
+    <div><strong>빌드 로그</strong><pre class="log">${esc(p.log || "(아직 없음)")}</pre></div>
+    <p class="err" id="err" role="alert"></p>
+    <div class="actions">
+      ${p.status === "실행 중" ? `<a class="btn" href="${esc(p.url)}" target="_blank" rel="noopener">서비스 열기</a>` : ""}
+      <button class="btn ghost" id="redeploy">다시 배포</button>
+      <button class="btn danger" id="del">삭제</button>
+      <a class="btn ghost" href="#">목록</a>
+    </div></div>`;
+  const log = document.querySelector("pre.log");
+  if (atBottom) log.scrollTop = log.scrollHeight;
+  const err = document.getElementById("err");
+  document.getElementById("redeploy").onclick = async () => {
+    try { await api(`/api/posts/${id}/redeploy`, { method: "POST" }); route(); } catch (x) { err.textContent = x.message; }
+  };
+  document.getElementById("del").onclick = async () => {
+    const who = prompt("삭제하려면 올린 사람 이름을 입력하세요.", localStorage.getItem("portal.author") || "");
+    if (who === null) return;
+    if (!confirm(`'${p.title}' 서비스를 삭제할까요? 실행 중인 서비스도 함께 내려갑니다.`)) return;
+    try { await api(`/api/posts/${id}?author=${encodeURIComponent(who)}`, { method: "DELETE" }); location.hash = ""; }
+    catch (x) { err.textContent = x.message; }
+  };
+  if (BUSY.includes(p.status)) later(() => renderPost(id).catch(() => {}), 4000);
+}
+
+async function route() {
+  clearTimeout(timer);
+  const h = location.hash;
+  try {
+    if (h === "#new") renderNew();
+    else if (h.startsWith("#post/")) await renderPost(h.slice(6));
+    else await renderList();
+  } catch (x) { $view.innerHTML = `<div class="card empty">${esc(x.message)}<br><br><a class="btn ghost" href="#">목록으로</a></div>`; }
+}
+addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>

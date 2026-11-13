@@ -13,6 +13,7 @@ evaluation/   평가셋(test_queries.csv), 평가 스크립트(run_eval.py), 결
 tests/        단위 테스트
 docs/         사용자 매뉴얼, spec/(src .py 파일별 프로그램 사양서, 도메인 폴더 구조 동일)
 index/        검색 인덱스 (build_index.py가 생성, 커밋 제외)
+portal/       게시판형 앱 포탈 — zip 업로드 → 로컬 Coolify(WSL2) 배포 (2026-11-13 추가, MSDS 앱과 독립된 배포 도구. 설치는 portal/CLAUDE.md)
 SERVICE.md    서비스 스펙
 README.md     프로젝트 설명
 HANDOFF.md    진행 현황과 다음 작업
