@@ -95,7 +95,24 @@ PowerShell에서는 `..\.venv\Scripts\python -m uvicorn src.api.app:app --port 8
 
 API는 [API Spec.md](API%20Spec.md)를 따릅니다: `POST /query`, 요청 `{"question": str}`, 응답 `{"answer", "contexts": [{"doc_id", "text"}], "trace": [{"step", "input", "output"}]}`. 그 밖에 `GET /`(화면), `GET /health`(상태 확인)가 있습니다.
 
-Docker: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.env msds-agent` (이 PC에 Docker가 없어 이미지 빌드는 검증하지 못했습니다)
+<!-- (기존 내용) Docker: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.env msds-agent` (이 PC에 Docker가 없어 이미지 빌드는 검증하지 못했습니다) -->
+Docker: `docker build -t msds-agent . && docker run -p 8000:8000 --env-file ../.env msds-agent` (2026-11-13 WSL2 Ubuntu의 Docker에서 빌드·질의 응답 확인)
+
+## 앱 포탈로 배포하기 (`portal/`)
+
+[portal/](portal/)은 Dockerfile이 든 소스를 zip으로 올리면 PC 안의 Coolify(WSL2)가 빌드·배포해 주는 게시판형 포탈입니다. 자세한 내용은 [portal/README.md](portal/README.md)를 봅니다.
+
+### 다른 PC에서 쓰는 방법
+
+1. GitHub에서 mini-pjt 저장소를 받습니다(`git clone https://github.com/dongyiya/mini-pjt.git`).
+2. 받은 폴더에서 Claude Code를 열고 **"포탈 설치해줘"**라고 말합니다.
+3. Claude Code가 [portal/CLAUDE.md](portal/CLAUDE.md)의 순서대로 진행합니다. WSL 설치부터 Coolify 설치, 포탈 실행, 동작 확인까지 하고, 사람이 해야 하는 일만 그때그때 안내합니다.
+
+### 사람이 직접 해야 하는 일
+
+- PC 재시작: 가상화 기능이 꺼져 있을 때
+- Coolify 관리자 가입: 설치 후 10분 안에
+- API Access 켜기와 root 권한 토큰 발급
 
 ## RAGAS 평가 결과
 - context_recall: 0.87 (목표 0.80 이상 ✅ · 1차 0.90)
